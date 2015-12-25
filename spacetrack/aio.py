@@ -110,7 +110,7 @@ class AsyncSpaceTrack(SpaceTrack):
 
 
 class AsyncContentIteratorMixin:
-    """Asynchronous iterator mixin for Sapce-Track aiohttp response."""
+    """Asynchronous iterator mixin for Space-Track aiohttp response."""
     def __init__(self, response, decode_unicode):
         self.response = response
         self.decode_unicode = decode_unicode
