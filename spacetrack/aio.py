@@ -1,14 +1,12 @@
 # coding: utf-8
 from __future__ import absolute_import, division, print_function
 
-import asyncio
 from collections import Mapping
-from functools import partial
 
 import aiohttp
 from aiohttp.helpers import parse_mimetype
 
-from .base import SpaceTrack, logger
+from .base import AuthenticationError, SpaceTrack, logger
 from .operators import _stringify_predicate_value
 
 
