@@ -1,0 +1,49 @@
+language: python
+
+cache:
+  directories:
+    - $HOME/.cache/pip
+    # OS X cache not yet enabled: https://github.com/travis-ci/travis-ci/issues/4011
+    - $HOME/Library/Caches/pip
+matrix:
+  include:
+    - python: 2.7
+      env: TOXENV=py27
+    - python: 3.3
+      env: TOXENV=py33
+    - python: 3.4
+      env: TOXENV=py34
+    - python: 3.5
+      env: TOXENV=py35
+    - python: 2.7
+      env: TOXENV=py2flake8
+    - python: 3.4
+      env: TOXENV=py3flake8
+    - python: 3.4
+      env: TOXENV=docs
+      addons:
+        apt:
+          packages:
+            - libenchant-dev
+            - graphviz
+
+install:
+  - pip install virtualenv
+  - python -m virtualenv ~/.venv
+  - source ~/.venv/bin/activate
+  - pip install tox codecov
+
+
+script:
+  - source ~/.venv/bin/activate
+  - tox
+
+after_success:
+  - ./.travis/upload_coverage.sh
+
+after_script:
+  - cat .tox/$TOXENV/log/$TOXENV-*.log
+
+notifications:
+  slack:
+    secure: lm7XUGVMxiJMMzMHusSO0uFsWVsSATpq9WRLj5++EQrxF5KUQcocob0JL6KT2JvPI6qfxI9iVnVeePM1nmt9Mly52efSKjyiDDQBth5KnLFB/eHqpiXpl/fzaVYIiTR0lEQwYpfU2dPa2xaBjw8YguMNcbQdi4k9DRwj6Ax1wwvJQdglC+zBt+AcGxdsL7CDR/CWU3cvlc9Id+ED5Rm8myHknK6BJARyJTnRD0RtOLT2SCz4E6o/h2XaCxRwyNLwGSNbeIW1ieYtEitw442M0n5qAAIvxXJ9awRUTcAVxs9Bh+nLRdKTSeYqcOyCnwhCHQRG7iO7WIVio0VMrD/55JPXQgKNocTSGKcSskRKT1tnL3nmvJ7BVB8w5ghLMv0wdSVwoY7A56KSZpPP316RFTa8FVTVDxWtlu4ydDMsvtYWKBD2Wwym1CR2+c25Bdee1eIIogmpKEScJzKRquV+pEciu1geqTWuI/bxGOFFVYFRUdQmA1blnFHiFcrA/vqoouJNNVPY+yeyUQafveSy+Thz8Jvj87Ac0ZdLTnCoTwX9iJVTkJ5+JxsxF4BASdS2UXkktKpf2bnpTM86BO7BnFig4ou/OEa0a+i3vD35F/7XIuic+9vczhbccsLqtMewpTXu6kv9RoelB5ntjQx1JxEIvGgkIh5BBaG5gXzc5YE=
