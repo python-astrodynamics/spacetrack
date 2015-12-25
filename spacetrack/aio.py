@@ -6,11 +6,19 @@ from collections import Mapping
 import aiohttp
 from aiohttp.helpers import parse_mimetype
 
-from .base import AuthenticationError, SpaceTrack, logger
+from .base import AuthenticationError, SpaceTrackClient, logger
 from .operators import _stringify_predicate_value
 
 
-class AsyncSpaceTrack(SpaceTrack):
+class AsyncSpaceTrackClient(SpaceTrackClient):
+    """Asynchronous SpaceTrack client class.
+
+    Parameters:
+        identity: Space-Track username.
+        password: Space-Track password.
+
+    For how to query the API, see https://www.space-track.org/documentation#/api
+    """
     @staticmethod
     def _create_session():
         return aiohttp.ClientSession()

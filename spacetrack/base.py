@@ -17,7 +17,15 @@ class AuthenticationError(Exception):
     """Space-Track authentication error."""
 
 
-class SpaceTrack(object):
+class SpaceTrackClient(object):
+    """SpaceTrack client class.
+
+    Parameters:
+        identity: Space-Track username.
+        password: Space-Track password.
+
+    For how to query the API, see https://www.space-track.org/documentation#/api
+    """
     base_url = 'https://www.space-track.org/'
 
     # Mapping of request classes to request controllers
