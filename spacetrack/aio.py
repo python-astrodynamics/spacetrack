@@ -37,8 +37,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
             self._authenticated = True
 
-    async def _generic_request(self, class_, iter_lines=False,
-                               iter_content=False, **kwargs):
+    async def generic_request(self, class_, iter_lines=False,
+                              iter_content=False, **kwargs):
         await self.authenticate()
 
         controller = self.request_classes[class_]
@@ -47,11 +47,6 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
         predicate_fields = await self.get_predicate_fields(class_)
         valid_fields = predicate_fields | self.rest_predicates
-        if 'stream' in predicate_fields:
-            # I don't expect this to happen, but prevent swallowing a predicate
-            # that would otherwise be correctly passes to Space-Track
-            raise RuntimeError(
-                "Predicate field 'stream' clashes with function keyword.")
 
         for key, value in kwargs.items():
             if key not in valid_fields:
@@ -130,7 +125,8 @@ class AsyncContentIteratorMixin:
         ctype = self.response.headers.get('content-type', '').lower()
         mtype, stype, _, params = parse_mimetype(ctype)
 
-        return params['charset']
+        # Fallback to UTF-8
+        return params.get('charset', 'UTF-8')
 
 
 class AsyncLineIterator(AsyncContentIteratorMixin):
