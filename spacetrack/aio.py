@@ -21,7 +21,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
     For more information, refer to the `Space-Track documentation`_.
 
-    .. _`Space-Track documentation`: https://www.space-track.org/documentation#api-requestClasses
+    .. _`Space-Track documentation`: https://www.space-track.org/documentation
+        #api-requestClasses
     """
     @staticmethod
     def _create_session():

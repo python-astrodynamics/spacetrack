@@ -1,2 +1,8 @@
+booleans
+coroutine
+datetimes
 indices
+KiB
+login
 mixin
+username

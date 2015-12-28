@@ -48,7 +48,8 @@ class SpaceTrackClient(object):
 
     For more information, refer to the `Space-Track documentation`_.
 
-    .. _`Space-Track documentation`: https://www.space-track.org/documentation#api-requestClasses
+    .. _`Space-Track documentation`: https://www.space-track.org/documentation
+        #api-requestClasses
     """
     base_url = 'https://www.space-track.org/'
 
