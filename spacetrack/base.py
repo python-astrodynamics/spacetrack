@@ -1,12 +1,13 @@
 # coding: utf-8
 from __future__ import absolute_import, division, print_function
 
+import re
 from collections import Mapping
 from functools import partial
 
 import requests
 from logbook import Logger
-from represent import ReprHelper
+from represent import ReprHelper, ReprHelperMixin
 
 from .operators import _stringify_predicate_value
 
@@ -17,6 +18,27 @@ class AuthenticationError(Exception):
     """Space-Track authentication error."""
 
 
+class Predicate(ReprHelperMixin, object):
+    """Hold Space-Track predicate information.
+
+    The current goal of this class is to print the repr for the user.
+    """
+    def __init__(self, name, type_, nullable=False, values=None):
+        self.name = name
+        self.type_ = type_
+        self.nullable = nullable
+
+        # Values can be set e.g. for enum predicates
+        self.values = values
+
+    def _repr_helper_(self, r):
+        r.keyword_from_attr('name')
+        r.keyword_from_attr('type_')
+        r.keyword_from_attr('nullable')
+        if self.values is not None:
+            r.keyword_from_attr('values')
+
+
 class SpaceTrackClient(object):
     """SpaceTrack client class.
 
@@ -24,7 +46,9 @@ class SpaceTrackClient(object):
         identity: Space-Track username.
         password: Space-Track password.
 
-    For how to query the API, see https://www.space-track.org/documentation#/api
+    For more information, refer to the `Space-Track documentation`_.
+
+    .. _`Space-Track documentation`: https://www.space-track.org/documentation#api-requestClasses
     """
     base_url = 'https://www.space-track.org/'
 
@@ -52,8 +76,17 @@ class SpaceTrackClient(object):
 
     # These predicates are available for every request class.
     rest_predicates = {
-        'predicates', 'metadata', 'limit', 'orderby', 'distinct', 'format',
-        'emptyresult', 'favorites'}
+        Predicate('predicates', 'str'),
+        Predicate('metadata', 'enum', values=('true', 'false')),
+        Predicate('limit', 'str'),
+        Predicate('orderby', 'str'),
+        Predicate('distinct', 'enum', values=('true', 'false')),
+        Predicate(
+            'format', 'enum',
+            values=('json', 'xml', 'html', 'csv', 'tle', '3le', 'kvn', 'stream')),
+        Predicate('emptyresult', 'enum', values=('show',)),
+        Predicate('favorites', 'str'),
+    }
 
     def __init__(self, identity, password):
         self.session = self._create_session()
@@ -61,7 +94,7 @@ class SpaceTrackClient(object):
         self.password = password
 
         self._authenticated = False
-        self._predicate_fields = dict()
+        self._predicates = dict()
 
     @staticmethod
     def _create_session():
@@ -98,7 +131,7 @@ class SpaceTrackClient(object):
                         **kwargs):
         """Generic Space-Track query.
 
-        The request class methods use this method internally, the following
+        The request class methods use this method internally; the following
         two lines are equivalent:
 
         .. code-block:: python
@@ -117,11 +150,11 @@ class SpaceTrackClient(object):
                 .. code-block:: python
 
                     spacetrack = SpaceTrackClient(...)
-                    spacetrack.tle.get_predicate_fields()
+                    spacetrack.tle.get_predicates()
                     # or
-                    spacetrack.get_predicate_fields('tle')
+                    spacetrack.get_predicates('tle')
 
-                See :fun:`~spacetrack.operators._stringify_predicate_value` for
+                See :func:`~spacetrack.operators._stringify_predicate_value` for
                 which Python objects are converted appropriately.
 
         Yields:
@@ -138,7 +171,6 @@ class SpaceTrackClient(object):
                 Passing ``format='json'`` will return the JSON **unparsed**. Do
                 not set ``format`` if you want the parsed JSON object returned!
         """
-
         if iter_lines and iter_content:
             raise ValueError('iter_lines and iter_content cannot both be True')
 
@@ -151,9 +183,10 @@ class SpaceTrackClient(object):
         url = ('{0}{1}/query/class/{2}'
                .format(self.base_url, controller, class_))
 
-        # Validate keyword arguments by querying valid predicates from Space-Track
-        predicate_fields = self.get_predicate_fields(class_)
-        valid_fields = predicate_fields | self.rest_predicates
+        # Validate keyword argument names by querying valid predicates from
+        # Space-Track
+        predicate_fields = self._get_predicate_fields(class_)
+        valid_fields = predicate_fields | {p.name for p in self.rest_predicates}
 
         for key, value in kwargs.items():
             if key not in valid_fields:
@@ -179,7 +212,7 @@ class SpaceTrackClient(object):
         if iter_lines:
             return (line for line in resp.iter_lines(decode_unicode=decode))
         elif iter_content:
-            return iter_content_generator(resp, decode_unicode=decode)
+            return _iter_content_generator(resp, decode_unicode=decode)
         else:
             # If format is specified, return that format unparsed. Otherwise,
             # parse the default JSON response.
@@ -200,25 +233,18 @@ class SpaceTrackClient(object):
                 .format(name=self.__class__.__name__, attr=attr))
 
         function = partial(self.generic_request, attr)
-        function.get_predicate_fields = partial(self.get_predicate_fields, attr)
+        function.get_predicates = partial(self.get_predicates, attr)
         return function
 
-    def get_predicate_fields(self, class_):
-        """Get valid predicate fields which can be passed as keyword arguments.
+    def _get_predicate_fields(self, class_):
+        """Get valid predicate fields which can be passed as keyword arguments."""
+        predicates = self.get_predicates(class_)
+        return {p.name for p in predicates}
 
-        The field names are fetched from Space-Track, and cached for subsequent
-        calls.
+    def _download_predicate_data(self, class_):
+        """Get raw predicate information for given request class, and cache for
+        subsequent calls.
         """
-        if class_ not in self._predicate_fields:
-            predicates = self._get_predicates(class_)
-            data = predicates['data']
-            fields = {d['Field'].lower() for d in data}
-            self._predicate_fields[class_] = fields
-
-        return self._predicate_fields[class_]
-
-    def _get_predicates(self, class_):
-        """Get full predicate information for given request class."""
         self.authenticate()
         controller = self.request_classes[class_]
 
@@ -227,7 +253,81 @@ class SpaceTrackClient(object):
 
         resp = self.session.get(url)
         resp.raise_for_status()
-        return resp.json()
+        return resp.json()['data']
+
+    def get_predicates(self, class_):
+        """Get full predicate information for given request class, and cache
+        for subsequent calls.
+        """
+        if class_ not in self._predicates:
+            predicates_data = self._download_predicate_data(class_)
+            predicate_objects = self._parse_predicates_data(predicates_data)
+            self._predicates[class_] = predicate_objects
+
+        return self._predicates[class_]
+
+    def _parse_predicates_data(self, predicates_data):
+        type_re = re.compile('(\w+)')
+        enum_re = re.compile("""
+            enum\(
+                '(\w+)'      # First value
+                (?:,         # Subsequent values optional
+                    '(\w+)'  # Capture string
+                )*
+            \)
+        """, re.VERBOSE)
+
+        predicate_objects = []
+        for field in predicates_data:
+            full_type = field['Type']
+            type_match = type_re.match(full_type)
+            if not type_match:
+                raise ValueError(
+                    "Couldn't parse field type '{}'".format(full_type))
+
+            type_name = type_match.group(1)
+            field_name = field['Field'].lower()
+            nullable = (field['Null'] == 'YES')
+
+            types = {
+                # Strings
+                'char': 'str',
+                'varchar': 'str',
+                'longtext': 'str',
+                # Integers
+                'bigint': 'int',
+                'int': 'int',
+                'tinyint': 'int',
+                'smallint': 'int',
+                'mediumint': 'int',
+                # Floats
+                'decimal': 'float',
+                'float': 'float',
+                'double': 'float',
+                # Date/Times
+                'date': 'date',
+                'timestamp': 'datetime',
+                'datetime': 'datetime',
+                # Enum
+                'enum': 'enum',
+            }
+
+            if type_name not in types:
+                raise ValueError("Unknown predicate type '{}'."
+                                 .format(type_name))
+
+            predicate = Predicate(field_name, types[type_name], nullable)
+            if type_name == 'enum':
+                enum_match = enum_re.match(full_type)
+                if not enum_match:
+                    raise ValueError(
+                        "Couldn't parse enum type '{}'".format(full_type))
+
+                predicate.values = enum_match.groups()
+
+            predicate_objects.append(predicate)
+
+        return predicate_objects
 
     def __repr__(self):
         r = ReprHelper(self)
@@ -236,7 +336,7 @@ class SpaceTrackClient(object):
         return str(r)
 
 
-def iter_content_generator(response, decode_unicode):
+def _iter_content_generator(response, decode_unicode):
     """Generator used to yield 1 KiB chunks for a given response."""
     for chunk in response.iter_content(1024, decode_unicode=decode_unicode):
         print(decode_unicode, chunk)

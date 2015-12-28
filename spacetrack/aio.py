@@ -13,11 +13,15 @@ from .operators import _stringify_predicate_value
 class AsyncSpaceTrackClient(SpaceTrackClient):
     """Asynchronous SpaceTrack client class.
 
+    This class should be considered experimental.
+
     Parameters:
         identity: Space-Track username.
         password: Space-Track password.
 
-    For how to query the API, see https://www.space-track.org/documentation#/api
+    For more information, refer to the `Space-Track documentation`_.
+
+    .. _`Space-Track documentation`: https://www.space-track.org/documentation#api-requestClasses
     """
     @staticmethod
     def _create_session():
@@ -39,14 +43,62 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
     async def generic_request(self, class_, iter_lines=False,
                               iter_content=False, **kwargs):
-        await self.authenticate()
+        """Generic Space-Track query coroutine.
+
+        The request class methods use this method internally; the following
+        two lines are equivalent:
+
+        .. code-block:: python
+
+            await spacetrack.tle_publish(*args, **kwargs)
+            await spacetrack.generic_request('tle_publish', *args, **kwargs)
+
+        Parameters:
+            class_: Space-Track request class name
+            iter_lines: Yield result line by line
+            iter_content: Yield result in 1 KiB chunks.
+            **kwargs: These keywords must match the predicate fields on
+                Space-Track. You may check valid keywords with the following
+                snippet:
+
+                .. code-block:: python
+
+                    spacetrack = AsyncSpaceTrackClient(...)
+                    await spacetrack.tle.get_predicates()
+                    # or
+                    await spacetrack.get_predicates('tle')
+
+                See :func:`~spacetrack.operators._stringify_predicate_value` for
+                which Python objects are converted appropriately.
+
+        Yields:
+            Lines—stripped of newline characters—if ``iter_lines=True``
+
+        Yields:
+            1 KiB chunks if ``iter_content=True``
+
+        Returns:
+            Parsed JSON object, unless ``format`` keyword argument is passed.
+
+            .. warning::
+
+                Passing ``format='json'`` will return the JSON **unparsed**. Do
+                not set ``format`` if you want the parsed JSON object returned!
+        """
+        if iter_lines and iter_content:
+            raise ValueError('iter_lines and iter_content cannot both be True')
+
+        if class_ not in self.request_classes:
+            raise ValueError("Unknown request class '{}'".format(class_))
+
+        self.authenticate()
 
         controller = self.request_classes[class_]
         url = ('{0}{1}/query/class/{2}'
                .format(self.base_url, controller, class_))
 
-        predicate_fields = await self.get_predicate_fields(class_)
-        valid_fields = predicate_fields | self.rest_predicates
+        predicate_fields = await self._get_predicate_fields(class_)
+        valid_fields = predicate_fields | {p.name for p in self.rest_predicates}
 
         for key, value in kwargs.items():
             if key not in valid_fields:
@@ -65,9 +117,9 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         decode = (controller != 'fileshare')
 
         if iter_lines:
-            return AsyncLineIterator(resp, decode_unicode=decode)
+            return _AsyncLineIterator(resp, decode_unicode=decode)
         elif iter_content:
-            return AsyncChunkIterator(resp, decode_unicode=decode)
+            return _AsyncChunkIterator(resp, decode_unicode=decode)
         else:
             # If format is specified, return that format unparsed. Otherwise,
             # parse the default JSON response.
@@ -79,20 +131,15 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             else:
                 return await resp.json()
 
-    async def get_predicate_fields(self, class_):
-        """Get valid predicate fields which can be passed as keyword arguments.
+    async def _get_predicate_fields(self, class_):
+        """Get valid predicate fields which can be passed as keyword arguments."""
+        predicates = await self._get_predicates(class_)
+        return {p.name for p in predicates}
 
-        The field names are fetched from Space-Track, and cached in memory.
+    async def _download_predicate_data(self, class_):
+        """Get raw predicate information for given request class, and cache for
+        subsequent calls.
         """
-        if class_ not in self._predicate_fields:
-            predicates = await self._get_predicates(class_)
-            data = predicates['data']
-            fields = {d['Field'].lower() for d in data}
-            self._predicate_fields[class_] = fields
-
-        return self._predicate_fields[class_]
-
-    async def _get_predicates(self, class_):
         await self.authenticate()
         controller = self.request_classes[class_]
 
@@ -100,7 +147,19 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                .format(self.base_url, controller, class_))
 
         resp = await self.session.get(url)
-        return await resp.json()
+        resp_json = await resp.json()
+        return resp_json['data']
+
+    async def get_predicates(self, class_):
+        """Get full predicate information for given request class, and cache
+        for subsequent calls.
+        """
+        if class_ not in self._predicates:
+            predicates_data = await self._download_predicate_data(class_)
+            predicate_objects = self._parse_predicates_data(predicates_data)
+            self._predicates[class_] = predicate_objects
+
+        return self._predicates[class_]
 
     def __enter__(self):
         return self
@@ -112,7 +171,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         self.session.close()
 
 
-class AsyncContentIteratorMixin:
+class _AsyncContentIteratorMixin:
     """Asynchronous iterator mixin for Space-Track aiohttp response."""
     def __init__(self, response, decode_unicode):
         self.response = response
@@ -129,7 +188,7 @@ class AsyncContentIteratorMixin:
         return params.get('charset', 'UTF-8')
 
 
-class AsyncLineIterator(AsyncContentIteratorMixin):
+class _AsyncLineIterator(_AsyncContentIteratorMixin):
     """Asynchronous line iterator for Space-Track streamed responses."""
     async def __anext__(self):
         data = await self.response.content.__anext__()
@@ -140,7 +199,7 @@ class AsyncLineIterator(AsyncContentIteratorMixin):
         return data
 
 
-class AsyncChunkIterator(AsyncContentIteratorMixin):
+class _AsyncChunkIterator(_AsyncContentIteratorMixin):
     """Asynchronous chunk iterator for Space-Track streamed responses."""
     def __init__(self, *args, chunk_size=1024, **kwargs):
         super().__init__(*args, **kwargs)
