@@ -92,7 +92,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         if class_ not in self.request_classes:
             raise ValueError("Unknown request class '{}'".format(class_))
 
-        self.authenticate()
+        await self.authenticate()
 
         controller = self.request_classes[class_]
         url = ('{0}{1}/query/class/{2}'
@@ -134,7 +134,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
     async def _get_predicate_fields(self, class_):
         """Get valid predicate fields which can be passed as keyword arguments."""
-        predicates = await self._get_predicates(class_)
+        predicates = await self.get_predicates(class_)
         return {p.name for p in predicates}
 
     async def _download_predicate_data(self, class_):
@@ -192,7 +192,12 @@ class _AsyncContentIteratorMixin:
 class _AsyncLineIterator(_AsyncContentIteratorMixin):
     """Asynchronous line iterator for Space-Track streamed responses."""
     async def __anext__(self):
-        data = await self.response.content.__anext__()
+        try:
+            data = await self.response.content.__anext__()
+        except StopAsyncIteration:
+            self.response.close()
+            raise
+
         if self.decode_unicode:
             data = data.decode(self.get_encoding())
             # Strip newlines
@@ -208,7 +213,12 @@ class _AsyncChunkIterator(_AsyncContentIteratorMixin):
 
     async def __anext__(self):
         content = self.response.content
-        data = await content.iter_chunked(self.chunk_size).__anext__()
+        try:
+            data = await content.iter_chunked(self.chunk_size).__anext__()
+        except StopAsyncIteration:
+            self.response.close()
+            raise
+
         if self.decode_unicode:
             data = data.decode(self.get_encoding())
             # Strip newlines
