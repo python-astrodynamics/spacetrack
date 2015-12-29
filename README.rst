@@ -1,7 +1,7 @@
 spacetrack
 -------------
 
-|PyPI Version| |Documentation| |AppVeyor| |Coverage| |Python Version| |MIT License|
+|PyPI Version| |Documentation| |Coverage| |Python Version| |MIT License|
 
 spacetrack is a python module for `Space-Track <https://www.space-track.org>`__
 
