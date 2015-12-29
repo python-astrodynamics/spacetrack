@@ -9,6 +9,58 @@ Usage
 
    st = SpaceTrackClient(identity='user@example.com', password='password')
 
+Streaming Downloads
+===================
+
+It is possible to stream responses by passing ``iter_content=True`` (100 KiB
+chunks) or ``iter_lines=True`` to the request class methods.
+
+Example
+-------
+
+The same example is shown below synchronously and asynchronously.
+
+.. code-block:: python
+
+    import spacetrack.operators as op
+    from spacetrack import SpaceTrackClient
+
+    st = SpaceTrackClient(identity='user@example.com', password='password')
+
+    data = st.tle_latest(iter_lines=True, ordinal=1, epoch='>now-30',
+                         mean_motion=op.inclusive_range(0.99, 1.01),
+                         eccentricity=op.less_than(0.01), format='tle')
+
+    with open('tle_latest.txt', 'w') as fp:
+        for line in data:
+            fp.write(line + '\n')
+
+.. code-block:: python
+
+    import asyncio
+
+    import spacetrack.operators as op
+    from spacetrack.aio import AsyncSpaceTrackClient
+
+
+    async def download_latest_tles():
+        st = AsyncSpaceTrackClient(identity='user@example.com',
+                                   password='password')
+
+        with st:
+            data = await st.tle_latest(
+                iter_lines=True, ordinal=1, epoch='>now-30',
+                mean_motion=op.inclusive_range(0.99, 1.01),
+                eccentricity=op.less_than(0.01), format='tle')
+
+            with open('tle_latest.txt', 'w') as fp:
+                async for line in data:
+                    fp.write(line + '\n')
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(download_latest_tles())
+
+
 Sample Queries
 ==============
 

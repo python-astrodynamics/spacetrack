@@ -15,6 +15,10 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
     This class should be considered experimental.
 
+    It must be closed by calling
+    :meth:`~spacetrack.aio.AsyncSpaceTrackClient.close`. Alternatively,
+    instances of this class can be used as a context manager.
+
     Parameters:
         identity: Space-Track username.
         password: Space-Track password.
@@ -169,6 +173,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         self.close()
 
     def close(self):
+        """Close aiohttp session."""
         self.session.close()
 
 
