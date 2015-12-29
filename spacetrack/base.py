@@ -143,7 +143,7 @@ class SpaceTrackClient(object):
         Parameters:
             class_: Space-Track request class name
             iter_lines: Yield result line by line
-            iter_content: Yield result in 1 KiB chunks.
+            iter_content: Yield result in 100 KiB chunks.
             **kwargs: These keywords must match the predicate fields on
                 Space-Track. You may check valid keywords with the following
                 snippet:
@@ -162,7 +162,7 @@ class SpaceTrackClient(object):
             Lines—stripped of newline characters—if ``iter_lines=True``
 
         Yields:
-            1 KiB chunks if ``iter_content=True``
+            100 KiB chunks if ``iter_content=True``
 
         Returns:
             Parsed JSON object, unless ``format`` keyword argument is passed.
@@ -338,8 +338,8 @@ class SpaceTrackClient(object):
 
 
 def _iter_content_generator(response, decode_unicode):
-    """Generator used to yield 1 KiB chunks for a given response."""
-    for chunk in response.iter_content(1024, decode_unicode=decode_unicode):
+    """Generator used to yield 100 KiB chunks for a given response."""
+    for chunk in response.iter_content(100 * 1024, decode_unicode=decode_unicode):
         print(decode_unicode, chunk)
         if decode_unicode:
             # Replace CRLF newlines with LF, Python will handle

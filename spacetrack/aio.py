@@ -57,7 +57,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         Parameters:
             class_: Space-Track request class name
             iter_lines: Yield result line by line
-            iter_content: Yield result in 1 KiB chunks.
+            iter_content: Yield result in 100 KiB chunks.
             **kwargs: These keywords must match the predicate fields on
                 Space-Track. You may check valid keywords with the following
                 snippet:
@@ -76,7 +76,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             Lines—stripped of newline characters—if ``iter_lines=True``
 
         Yields:
-            1 KiB chunks if ``iter_content=True``
+            100 KiB chunks if ``iter_content=True``
 
         Returns:
             Parsed JSON object, unless ``format`` keyword argument is passed.
@@ -202,7 +202,7 @@ class _AsyncLineIterator(_AsyncContentIteratorMixin):
 
 class _AsyncChunkIterator(_AsyncContentIteratorMixin):
     """Asynchronous chunk iterator for Space-Track streamed responses."""
-    def __init__(self, *args, chunk_size=1024, **kwargs):
+    def __init__(self, *args, chunk_size=100 * 1024, **kwargs):
         super().__init__(*args, **kwargs)
         self.chunk_size = chunk_size
 
