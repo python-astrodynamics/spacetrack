@@ -7,16 +7,14 @@ from collections import Sequence
 import six
 
 
-def greater_than(left, right):
-    """``'left>right'``."""
-    return (_stringify_predicate_value(left) + '>' +
-            _stringify_predicate_value(right))
+def greater_than(value):
+    """``'>value'``."""
+    return '>' + _stringify_predicate_value(value)
 
 
-def less_than(left, right):
-    """``'left<right'``."""
-    return (_stringify_predicate_value(left) + '<' +
-            _stringify_predicate_value(right))
+def less_than(value):
+    """``'<value'``."""
+    return '<' + _stringify_predicate_value(value)
 
 
 def not_equal(left, right):
