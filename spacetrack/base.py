@@ -2,11 +2,14 @@
 from __future__ import absolute_import, division, print_function
 
 import re
+import threading
+import time
 from collections import Mapping
 from functools import partial
 
 import requests
 from logbook import Logger
+from ratelimiter import RateLimiter
 from represent import ReprHelper, ReprHelperMixin
 
 from .operators import _stringify_predicate_value
@@ -94,8 +97,24 @@ class SpaceTrackClient(object):
         self.identity = identity
         self.password = password
 
+        # If set, this will be called when we sleep for the rate limit.
+        self.callback = None
+
         self._authenticated = False
         self._predicates = dict()
+
+        # "Space-track throttles API use in order to maintain consistent
+        # performance for all users. To avoid error messages, please limit your
+        # query frequency to less than 20 requests per minute."
+        self._ratelimiter = RateLimiter(
+            max_calls=19, period=60, callback=self._ratelimit_callback)
+
+    def _ratelimit_callback(self, until):
+        duration = int(round(until - time.time()))
+        logger.info('Rate limit reached. Sleeping for {:d} seconds.', duration)
+
+        if self.callback is not None:
+            self.callback(until)
 
     @staticmethod
     def _create_session():
@@ -201,7 +220,30 @@ class SpaceTrackClient(object):
 
         logger.info(url)
 
-        resp = self.session.get(url, stream=iter_lines or iter_content)
+        with self._ratelimiter:
+            resp = self.session.get(url, stream=iter_lines or iter_content)
+
+        # It's possible that Space-Track will return HTTP status 500 with a
+        # query rate limit violation. This can happen if a script is cancelled
+        # before it has finished sleeping to satisfy the rate limit and it is
+        # started again.
+        #
+        # Let's catch this specific instance and retry once if it happens.
+        if resp.status_code == 500:
+            # Let's only retry if the error page tells us it's a rate limit
+            # violation.in
+            if 'violated your query rate limit' in resp.text:
+                # Mimic the RateLimiter callback behaviour.
+                until = time.time() + self._ratelimiter.period
+                t = threading.Thread(target=self._ratelimit_callback, args=(until,))
+                t.daemon = True
+                t.start()
+                time.sleep(self._ratelimiter.period)
+
+                # Now retry
+                with self._ratelimiter:
+                    resp = self.session.get(url, stream=iter_lines or iter_content)
+
         resp.raise_for_status()
 
         if resp.encoding is None:
@@ -252,7 +294,9 @@ class SpaceTrackClient(object):
         url = ('{0}{1}/modeldef/class/{2}'
                .format(self.base_url, controller, class_))
 
-        resp = self.session.get(url)
+        with self._ratelimiter:
+            resp = self.session.get(url)
+
         resp.raise_for_status()
         return resp.json()['data']
 

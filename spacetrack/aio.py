@@ -1,7 +1,9 @@
 # coding: utf-8
 from __future__ import absolute_import, division, print_function
 
-from collections import Mapping
+import asyncio
+import time
+from collections.abc import AsyncIterator, Mapping
 
 import aiohttp
 from aiohttp.helpers import parse_mimetype
@@ -31,6 +33,13 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
     @staticmethod
     def _create_session():
         return aiohttp.ClientSession()
+
+    async def _ratelimit_callback(self, until):
+        duration = int(round(until - time.time()))
+        logger.info('Rate limit reached. Sleeping for {:d} seconds.', duration)
+
+        if self.callback is not None:
+            await self.callback(until)
 
     async def authenticate(self):
         if not self._authenticated:
@@ -117,7 +126,31 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
         logger.info(url)
 
-        resp = await self.session.get(url)
+        async with self._ratelimiter:
+            resp = await self.session.get(url)
+
+        # It's possible that Space-Track will return HTTP status 500 with a
+        # query rate limit violation. This can happen if a script is cancelled
+        # before it has finished sleeping to satisfy the rate limit and it is
+        # started again.
+        #
+        # Let's catch this specific instance and retry once if it happens.
+        if resp.status == 500:
+            text = await resp.text()
+
+            # Let's only retry if the error page tells us it's a rate limit
+            # violation.in
+            if 'violated your query rate limit' in text:
+                # Mimic the RateLimiter callback behaviour.
+                until = time.time() + self._ratelimiter.period
+                asyncio.ensure_future(self._ratelimit_callback(until))
+                await asyncio.sleep(self._ratelimiter.period)
+
+                # Now retry
+                async with self._ratelimiter:
+                    resp = await self.session.get(url)
+
+        _raise_for_status(resp)
 
         decode = (controller != 'fileshare')
 
@@ -151,7 +184,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         url = ('{0}{1}/modeldef/class/{2}'
                .format(self.base_url, controller, class_))
 
-        resp = await self.session.get(url)
+        async with self._ratelimiter:
+            resp = await self.session.get(url)
         resp_json = await resp.json()
         return resp_json['data']
 
@@ -177,14 +211,11 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         self.session.close()
 
 
-class _AsyncContentIteratorMixin:
+class _AsyncContentIteratorMixin(AsyncIterator):
     """Asynchronous iterator mixin for Space-Track aiohttp response."""
     def __init__(self, response, decode_unicode):
         self.response = response
         self.decode_unicode = decode_unicode
-
-    async def __aiter__(self):
-        return self
 
     def get_encoding(self):
         ctype = self.response.headers.get('content-type', '').lower()
@@ -229,3 +260,43 @@ class _AsyncChunkIterator(_AsyncContentIteratorMixin):
             # Strip newlines
             data = data.strip('\r')
         return data
+
+
+def _raise_for_status(response):
+    """Raise an appropriate error for a given response.
+
+    Arguments:
+      response (:py:class:`aiohttp.ClientResponse`): The API response.
+
+    Raises:
+      :py:class:`aiohttp.web_exceptions.HTTPException`: The appropriate
+        error for the response's status.
+
+    This function was taken from the aslack project and modified. The original
+    copyright notice:
+
+    Copyright (c) 2015, Jonathan Sharpe
+
+    Permission to use, copy, modify, and/or distribute this software for any
+    purpose with or without fee is hereby granted, provided that the above
+    copyright notice and this permission notice appear in all copies.
+
+    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+    """
+    if 400 <= response.status < 600:
+        for err_name in aiohttp.web_exceptions.__all__:
+            err = getattr(aiohttp.web_exceptions, err_name)
+            if err.status_code == response.status:
+                payload = dict(
+                    headers=response.headers,
+                    reason=response.reason,
+                )
+                if issubclass(err, aiohttp.web_exceptions._HTTPMove):
+                    raise err(response.headers['Location'], **payload)
+                raise err(**payload)
