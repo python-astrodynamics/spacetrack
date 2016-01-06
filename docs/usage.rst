@@ -60,6 +60,33 @@ The same example is shown below synchronously and asynchronously.
     loop = asyncio.get_event_loop()
     loop.run_until_complete(download_latest_tles())
 
+Rate Limiter
+============
+
+    "Space-track throttles API use in order to maintain consistent
+    performance for all users. To avoid error messages, please limit your
+    query frequency to less than 20 requests per minute."
+
+The client will ensure that no more than 19 HTTP requests are sent per minute by
+sleeping if the rate exceeds this. This will be logged to the spacetrack
+module's logger. You can register a callback with the
+:class:`~spacetrack.base.SpaceTrackClient` or
+:class:`~spacetrack.aio.AsyncSpaceTrackClient` classes. It will be passed the
+time that the module is sleeping until, in seconds since the epoch (as with
+:func:`time.time`).
+
+.. code-block:: python
+
+    import time
+
+    from spacetrack import SpaceTrackClient
+
+    def mycallback(until):
+        duration = int(round(until - time.time()))
+        print('Sleeping for {:d} seconds.'.format(duration))
+
+    st = SpaceTrackClient(identity='user@example.com', password='password')
+    st.callback = mycallback
 
 Sample Queries
 ==============
