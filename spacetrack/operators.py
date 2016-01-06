@@ -17,10 +17,9 @@ def less_than(value):
     return '<' + _stringify_predicate_value(value)
 
 
-def not_equal(left, right):
-    """``'left<>right'``."""
-    return (_stringify_predicate_value(left) + '<>' +
-            _stringify_predicate_value(right))
+def not_equal(value):
+    """``'<>value'``."""
+    return '<>' + _stringify_predicate_value(value)
 
 
 def inclusive_range(left, right):
