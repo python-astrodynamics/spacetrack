@@ -384,7 +384,6 @@ class SpaceTrackClient(object):
 def _iter_content_generator(response, decode_unicode):
     """Generator used to yield 100 KiB chunks for a given response."""
     for chunk in response.iter_content(100 * 1024, decode_unicode=decode_unicode):
-        print(decode_unicode, chunk)
         if decode_unicode:
             # Replace CRLF newlines with LF, Python will handle
             # platform specific newlines if written to file.
