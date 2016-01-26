@@ -1,11 +1,12 @@
 # coding: utf-8
 from __future__ import absolute_import, division, print_function
 
-from .base import SpaceTrackClient
+from .base import AuthenticationError, SpaceTrackClient
 from .operators import (
     greater_than, inclusive_range, less_than, like, not_equal, startswith)
 
 __all__ = (
+    'AuthenticationError',
     'greater_than',
     'inclusive_range',
     'less_than',
