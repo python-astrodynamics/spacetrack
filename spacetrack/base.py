@@ -253,7 +253,7 @@ class SpaceTrackClient(object):
         # CRLF newlines to LF.
         decode = (controller != 'fileshare')
         if iter_lines:
-            return (line for line in resp.iter_lines(decode_unicode=decode))
+            return _iter_lines_generator(resp, decode_unicode=decode)
         elif iter_content:
             return _iter_content_generator(resp, decode_unicode=decode)
         else:
@@ -389,3 +389,37 @@ def _iter_content_generator(response, decode_unicode):
             # platform specific newlines if written to file.
             chunk = chunk.strip('\r')
         yield chunk
+
+
+def _iter_lines_generator(response, decode_unicode):
+    """Iterates over the response data, one line at a time.  When
+    stream=True is set on the request, this avoids reading the
+    content at once into memory for large responses.
+
+    The function is taken from :meth:`requests.models.Response.iter_lines`, but
+    modified to use our :func:`~spacetrack.base._iter_content_generator`. This
+    is because Space-Track uses CRLF newlines, so :meth:`str.splitlines` can
+    cause us to yield blank lines if one chunk ends with CR and the next one
+    starts with LF.
+
+    .. note:: This method is not reentrant safe.
+    """
+    pending = None
+
+    for chunk in _iter_content_generator(response, decode_unicode=decode_unicode):
+
+        if pending is not None:
+            chunk = pending + chunk
+
+        lines = chunk.splitlines()
+
+        if lines and lines[-1] and chunk and lines[-1][-1] == chunk[-1]:
+            pending = lines.pop()
+        else:
+            pending = None
+
+        for line in lines:
+            yield line
+
+    if pending is not None:
+        yield pending
