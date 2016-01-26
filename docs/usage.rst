@@ -9,6 +9,29 @@ Usage
 
    st = SpaceTrackClient(identity='user@example.com', password='password')
 
+Request classes are presented as methods on the
+:class:`~spacetrack.base.SpaceTrackClient` object. For example,
+``st.tle_publish()``. Request predicates are passed as keyword arguments. Valid
+arguments can be checked using the
+:meth:`~spacetrack.base.SpaceTrackClient.get_predicates` method.
+
+.. code-block:: python
+
+    st.tle_publish.get_predicates()
+    # which is equivalent to
+    st.get_predicates('tle_publish')
+
+Returned object:
+
+.. code-block:: python
+
+    [Predicate(name='publish_epoch', type_='datetime', nullable=False),
+     Predicate(name='tle_line1', type_='str', nullable=False),
+     Predicate(name='tle_line2', type_='str', nullable=False)]
+
+Internally, the client uses this mechanism to verify the keyword arguments.
+Types are not currently checked.
+
 Streaming Downloads
 ===================
 
