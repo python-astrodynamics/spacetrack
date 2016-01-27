@@ -64,7 +64,7 @@ def test_generic_request_exceptions():
 @responses.activate
 def test_authenticate():
     def request_callback(request):
-        if request.body == 'identity=identity&password=wrongpassword':
+        if 'wrongpassword' in request.body:
             return (200, dict(), json.dumps({'Login': 'Failed'}))
         else:
             return (200, dict(), json.dumps(''))
