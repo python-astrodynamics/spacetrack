@@ -3,8 +3,8 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 
-from .base import AuthenticationError, SpaceTrackClient
-from .operators import (
+from .base import AuthenticationError, SpaceTrackClient  # noqa
+from .operators import (  # noqa
     greater_than, inclusive_range, less_than, like, not_equal, startswith)
 
 __all__ = [
