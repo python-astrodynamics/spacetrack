@@ -387,7 +387,9 @@ def _iter_content_generator(response, decode_unicode):
         if decode_unicode:
             # Replace CRLF newlines with LF, Python will handle
             # platform specific newlines if written to file.
-            chunk = chunk.strip('\r')
+            chunk = chunk.replace('\r\n', '\n')
+            # Chunk could be ['...\r', '\n...'], stril trailing \r
+            chunk = chunk.rstrip('\r')
         yield chunk
 
 
