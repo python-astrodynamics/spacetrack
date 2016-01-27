@@ -9,6 +9,7 @@ try:
 except ImportError:
     from mock import patch
 
+
 def test_iter_lines_generator():
     """Test that lines are split correctly."""
     def mock_iter_content(self, chunk_size, decode_unicode):

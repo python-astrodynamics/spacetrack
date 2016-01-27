@@ -90,8 +90,8 @@ Rate Limiter
     performance for all users. To avoid error messages, please limit your
     query frequency to less than 20 requests per minute."
 
-The client will ensure that no more than 19 HTTP requests are sent per minute by
-sleeping if the rate exceeds this. This will be logged to the spacetrack
+The client will ensure that no more than 19 HTTP requests are sent per minute
+by sleeping if the rate exceeds this. This will be logged to the spacetrack
 module's logger. You can register a callback with the
 :class:`~spacetrack.base.SpaceTrackClient` or
 :class:`~spacetrack.aio.AsyncSpaceTrackClient` classes. It will be passed the

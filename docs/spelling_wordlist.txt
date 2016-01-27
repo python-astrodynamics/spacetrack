@@ -5,4 +5,5 @@ indices
 KiB
 login
 mixin
+readthedocs
 username

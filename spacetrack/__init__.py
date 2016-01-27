@@ -19,7 +19,7 @@ __all__ = [
 ]
 
 if sys.version_info >= (3, 5):
-    from .aio import AsyncSpaceTrackClient
+    from .aio import AsyncSpaceTrackClient  # noqa
     __all__.append('AsyncSpaceTrackClient')
 
 __all__ = tuple(__all__)
