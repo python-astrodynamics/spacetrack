@@ -31,7 +31,7 @@ extras_require = dict()
 
 extras_require['test'] = {
     'pytest>=2.7.3',
-    # 'responses',
+    'responses',
 }
 
 extras_require['dev'] = {

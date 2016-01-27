@@ -1,9 +1,12 @@
 # coding: utf-8
 from __future__ import absolute_import, division, print_function
 
+import json
+
 import pytest
+import responses
 from requests import Response
-from spacetrack import SpaceTrackClient
+from spacetrack import AuthenticationError, SpaceTrackClient
 from spacetrack.base import _iter_content_generator, _iter_lines_generator
 
 try:
@@ -36,7 +39,7 @@ def test_iter_content_generator():
         assert result == ['1\n2\n', '3', '\n4', '\n5']
 
 
-def test_generic_request():
+def test_generic_request_exceptions():
     st = SpaceTrackClient('identity', 'password')
 
     with pytest.raises(ValueError):
@@ -56,3 +59,31 @@ def test_generic_request():
     with patch_authenticate, patch_get_predicate_fields:
         with pytest.raises(TypeError):
             st.generic_request('tle', madeupkeyword=None)
+
+
+@responses.activate
+def test_authenticate():
+    def request_callback(request):
+        if request.body == 'identity=identity&password=wrongpassword':
+            return (200, dict(), json.dumps({'Login': 'Failed'}))
+        else:
+            return (200, dict(), json.dumps(''))
+
+    responses.add_callback(
+        responses.POST, 'https://www.space-track.org/ajaxauth/login',
+        callback=request_callback, content_type='application/json')
+
+    st = SpaceTrackClient('identity', 'wrongpassword')
+
+    with pytest.raises(AuthenticationError):
+        st.authenticate()
+
+    assert len(responses.calls) == 1
+
+    st.password = 'correctpassword'
+    st.authenticate()
+    st.authenticate()
+
+    # Check that only one login request was made since successful
+    # authentication
+    assert len(responses.calls) == 2
