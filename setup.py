@@ -52,13 +52,14 @@ extras_require['dev'] = {
     'watchdog',
 }
 
-extras_require['dev'] |= extras_require['test']
 
 if sys.version_info >= (3, 5):
     extras_require['async'] = {'aiohttp'}
 
-# if sys.version_info[:2] < (3, 3):
-#     extras_require['dev'] |= {'mock'}
+if sys.version_info[:2] < (3, 3):
+    extras_require['test'] |= {'mock'}
+
+extras_require['dev'] |= extras_require['test']
 
 extras_require['all'] = extras_require['dev'] | extras_require.get('async', set())
 
