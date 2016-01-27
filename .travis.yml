@@ -28,7 +28,8 @@ matrix:
             - graphviz
 
 install:
-  - pip install virtualenv
+  - pip install virtualenv wheel
+  - pip install -U pip
   - python -m virtualenv ~/.venv
   - source ~/.venv/bin/activate
   - pip install tox codecov
