@@ -56,6 +56,3 @@ def test_generic_request():
     with patch_authenticate, patch_get_predicate_fields:
         with pytest.raises(TypeError):
             st.generic_request('tle', madeupkeyword=None)
-
-
-
