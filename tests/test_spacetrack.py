@@ -197,6 +197,9 @@ def test_spacetrack_methods():
             method()
             assert mock_generic_request.call_args == call(class_)
 
+    with pytest.raises(AttributeError):
+        st.madeupmethod()
+
 
 @responses.activate
 def test_authenticate():
