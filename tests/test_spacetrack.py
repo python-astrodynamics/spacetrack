@@ -123,11 +123,13 @@ def test_generic_request():
 
 
 def test_spacetrack_methods():
+    """Verify that e.g. st.tle_publish calls st.generic_request('tle_publish')"""
     st = SpaceTrackClient('identity', 'password')
     with patch.object(SpaceTrackClient, 'generic_request') as mock_generic_request:
-        st.tle_publish()
-        assert mock_generic_request.call_count == 1
-        assert mock_generic_request.call_args == call('tle_publish')
+        for class_ in st.request_classes:
+            method = getattr(st, class_)
+            method()
+            assert mock_generic_request.call_args == call(class_)
 
 
 @responses.activate

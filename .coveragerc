@@ -1,0 +1,13 @@
+[run]
+branch=True
+source=
+    spacetrack
+
+[paths]
+source=
+    spacetrack
+    .tox/*/lib/python*/site-packages/spacetrack
+
+[report]
+exclude_lines=
+	if __name__ == '__main__':
