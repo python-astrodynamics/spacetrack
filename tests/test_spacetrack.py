@@ -62,6 +62,67 @@ def test_generic_request_exceptions():
 
 
 @responses.activate
+def test_generic_request():
+    responses.add(
+        responses.POST, 'https://www.space-track.org/ajaxauth/login', json='""')
+
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/basicspacedata/modeldef/class/tle_publish',
+        json={
+            'controller': 'basicspacedata',
+            'data': [
+                {
+                    'Default': '0000-00-00 00:00:00',
+                    'Extra': '',
+                    'Field': 'PUBLISH_EPOCH',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'datetime'
+                },
+                {
+                    'Default': '',
+                    'Extra': '',
+                    'Field': 'TLE_LINE1',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'char(71)'
+                },
+                {
+                    'Default': '',
+                    'Extra': '',
+                    'Field': 'TLE_LINE2',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'char(71)'
+                }
+            ]})
+
+    tle = (
+        '1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927\r\n'
+        '2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537\r\n')
+
+    normalised_tle = tle.replace('\r\n', '\n')
+
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/basicspacedata/query/class/tle_publish'
+        '/format/tle',
+        body=tle)
+
+    st = SpaceTrackClient('identity', 'password')
+    assert st.generic_request('tle_publish', format='tle') == normalised_tle
+
+    lines = list(
+        st.generic_request('tle_publish', iter_lines=True, format='tle'))
+
+    assert lines == [
+        '1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927',
+        '2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537'
+    ]
+
+
+@responses.activate
 def test_authenticate():
     def request_callback(request):
         if 'wrongpassword' in request.body:
