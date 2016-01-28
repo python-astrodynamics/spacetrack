@@ -203,7 +203,63 @@ def test_ratelimit_error():
     with pytest.raises(HTTPError):
         st.tle_publish()
 
-    assert mock_callback.called
+    assert mock_callback.call_count == 1
+
+
+@responses.activate
+def test_non_ratelimit_error():
+    responses.add(
+        responses.POST, 'https://www.space-track.org/ajaxauth/login', json='""')
+
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/basicspacedata/modeldef/class/tle_publish',
+        json={
+            'controller': 'basicspacedata',
+            'data': [
+                {
+                    'Default': '0000-00-00 00:00:00',
+                    'Extra': '',
+                    'Field': 'PUBLISH_EPOCH',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'datetime'
+                },
+                {
+                    'Default': '',
+                    'Extra': '',
+                    'Field': 'TLE_LINE1',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'char(71)'
+                },
+                {
+                    'Default': '',
+                    'Extra': '',
+                    'Field': 'TLE_LINE2',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'char(71)'
+                }
+            ]})
+
+    st = SpaceTrackClient('identity', 'password')
+
+    # Change ratelimiter period to speed up test
+    st._ratelimiter.period = 1
+
+    mock_callback = Mock()
+    st.callback = mock_callback
+
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/basicspacedata/query/class/tle_publish',
+        status=500, body='some other error')
+
+    with pytest.raises(HTTPError):
+        st.tle_publish()
+
+    assert not mock_callback.called
 
 
 @responses.activate
