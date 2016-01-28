@@ -127,6 +127,68 @@ def test_generic_request():
     ]
 
 
+@responses.activate
+def test_predicate_parse():
+    st = SpaceTrackClient('identity', 'password')
+
+    predicates_data = [
+        {
+            'Default': '',
+            'Extra': '',
+            'Field': 'TEST',
+            'Key': '',
+            'Null': 'NO',
+            'Type': '%brokentype'
+        }
+    ]
+
+    with pytest.raises(ValueError):
+        st._parse_predicates_data(predicates_data)
+
+    predicates_data = [
+        {
+            'Default': '',
+            'Extra': '',
+            'Field': 'TEST',
+            'Key': '',
+            'Null': 'NO',
+            'Type': 'unknowntype'
+        }
+    ]
+
+    with pytest.raises(ValueError):
+        st._parse_predicates_data(predicates_data)
+
+    predicates_data = [
+        {
+            'Default': '',
+            'Extra': '',
+            'Field': 'TEST',
+            'Key': '',
+            'Null': 'NO',
+            'Type': 'enum()'
+        }
+    ]
+
+    with pytest.raises(ValueError):
+        st._parse_predicates_data(predicates_data)
+
+    predicates_data = [
+        {
+            'Default': '',
+            'Extra': '',
+            'Field': 'TEST',
+            'Key': '',
+            'Null': 'NO',
+            'Type': "enum('a','b')"
+        }
+    ]
+
+    predicate = st._parse_predicates_data(predicates_data)[0]
+    assert predicate.values == ('a', 'b')
+
+
+
 def test_spacetrack_methods():
     """Verify that e.g. st.tle_publish calls st.generic_request('tle_publish')"""
     st = SpaceTrackClient('identity', 'password')

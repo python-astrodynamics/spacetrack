@@ -16,6 +16,16 @@ from .operators import _stringify_predicate_value
 
 logger = Logger('spacetrack')
 
+type_re = re.compile('(\w+)')
+enum_re = re.compile("""
+    enum\(
+        '(\w+)'      # First value
+        (?:,         # Subsequent values optional
+            '(\w+)'  # Capture string
+        )*
+    \)
+""", re.VERBOSE)
+
 
 class AuthenticationError(Exception):
     """Space-Track authentication error."""
@@ -312,16 +322,6 @@ class SpaceTrackClient(object):
         return self._predicates[class_]
 
     def _parse_predicates_data(self, predicates_data):
-        type_re = re.compile('(\w+)')
-        enum_re = re.compile("""
-            enum\(
-                '(\w+)'      # First value
-                (?:,         # Subsequent values optional
-                    '(\w+)'  # Capture string
-                )*
-            \)
-        """, re.VERBOSE)
-
         predicate_objects = []
         for field in predicates_data:
             full_type = field['Type']
