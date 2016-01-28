@@ -52,16 +52,31 @@ extras_require['dev'] = {
     'watchdog',
 }
 
+extras_require['async:python_version>="3.5"'] = {'aiohttp'}
+extras_require['test:python_version<"3.3"'] = {'mock'}
 
-if sys.version_info >= (3, 5):
-    extras_require['async'] = {'aiohttp'}
 
-if sys.version_info[:2] < (3, 3):
-    extras_require['test'] |= {'mock'}
+def add_to_extras(dest, source):
+    """Add dependencies from `source` extra to `dest` extra, handling
+    conditional dependencies.
+    """
+    for key, deps in list(extras_require.items()):
+        extra, _, condition = key.partition(':')
+        if extra == source:
+            if condition:
+                try:
+                    extras_require[dest + ':' + condition] |= deps
+                except KeyError:
+                    extras_require[dest + ':' + condition] = deps
+            else:
+                try:
+                    extras_require[dest] |= deps
+                except KeyError:
+                    extras_require[dest] = deps
 
-extras_require['dev'] |= extras_require['test']
-
-extras_require['all'] = extras_require['dev'] | extras_require.get('async', set())
+add_to_extras('dev', 'test')
+add_to_extras('all', 'dev')
+add_to_extras('all', 'async')
 
 
 class PyTest(TestCommand):
