@@ -7,7 +7,8 @@ import pytest
 import responses
 from requests import Response
 from spacetrack import AuthenticationError, SpaceTrackClient
-from spacetrack.base import _iter_content_generator, _iter_lines_generator
+from spacetrack.base import (
+    Predicate, _iter_content_generator, _iter_lines_generator)
 
 try:
     from unittest.mock import call, patch
@@ -37,6 +38,10 @@ def test_iter_content_generator():
         result = list(
             _iter_content_generator(response=Response(), decode_unicode=True))
         assert result == ['1\n2\n', '3', '\n4', '\n5']
+
+        result = list(
+            _iter_content_generator(response=Response(), decode_unicode=False))
+        assert result == ['1\r\n2\r\n', '3\r', '\n4', '\r\n5']
 
 
 def test_generic_request_exceptions():
@@ -158,3 +163,18 @@ def test_authenticate():
     # Check that only one login request was made since successful
     # authentication
     assert len(responses.calls) == 2
+
+
+def test_repr():
+    st = SpaceTrackClient('hello@example.com', 'mypassword')
+    assert repr(st) == "SpaceTrackClient<identity='hello@example.com'>"
+    assert 'mypassword' not in repr(st)
+
+    predicate = Predicate(name='a', type_='int', nullable=True)
+    assert repr(predicate) == "Predicate(name='a', type_='int', nullable=True)"
+
+    predicate = Predicate(
+        name='a', type_='enum', nullable=True, values=('a', 'b'))
+
+    reprstr = "Predicate(name='a', type_='enum', nullable=True, values=('a', 'b'))"
+    assert repr(predicate) == reprstr
