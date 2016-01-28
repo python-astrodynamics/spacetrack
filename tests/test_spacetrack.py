@@ -1,19 +1,20 @@
 # coding: utf-8
 from __future__ import absolute_import, division, print_function
 
+import datetime as dt
 import json
 
 import pytest
 import responses
-from requests import Response
+from requests import HTTPError, Response
 from spacetrack import AuthenticationError, SpaceTrackClient
 from spacetrack.base import (
     Predicate, _iter_content_generator, _iter_lines_generator)
 
 try:
-    from unittest.mock import call, patch
+    from unittest.mock import Mock, call, patch
 except ImportError:
-    from mock import call, patch
+    from mock import Mock, call, patch
 
 
 def test_iter_lines_generator():
@@ -116,15 +117,93 @@ def test_generic_request():
         body=tle)
 
     st = SpaceTrackClient('identity', 'password')
-    assert st.generic_request('tle_publish', format='tle') == normalised_tle
+    assert st.tle_publish(format='tle') == normalised_tle
 
     lines = list(
-        st.generic_request('tle_publish', iter_lines=True, format='tle'))
+        st.tle_publish(iter_lines=True, format='tle'))
 
     assert lines == [
         '1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927',
         '2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537'
     ]
+
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/basicspacedata/query/class/tle_publish',
+        json={'a': 5})
+
+    result = st.tle_publish()
+    assert result['a'] == 5
+
+    # Just use
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/basicspacedata/query/class/tle_publish'
+        '/publish_epoch/1986-01-28%2016:39:13',
+        body='a' * (100 * 1024) + 'b')
+
+    result = list(st.tle_publish(
+        iter_content=True, publish_epoch=dt.datetime(1986, 1, 28, 16, 39, 13)))
+
+    assert result[0] == 'a' * (100 * 1024)
+    assert result[1] == 'b'
+
+
+@responses.activate
+def test_ratelimit_error():
+    responses.add(
+        responses.POST, 'https://www.space-track.org/ajaxauth/login', json='""')
+
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/basicspacedata/modeldef/class/tle_publish',
+        json={
+            'controller': 'basicspacedata',
+            'data': [
+                {
+                    'Default': '0000-00-00 00:00:00',
+                    'Extra': '',
+                    'Field': 'PUBLISH_EPOCH',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'datetime'
+                },
+                {
+                    'Default': '',
+                    'Extra': '',
+                    'Field': 'TLE_LINE1',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'char(71)'
+                },
+                {
+                    'Default': '',
+                    'Extra': '',
+                    'Field': 'TLE_LINE2',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'char(71)'
+                }
+            ]})
+
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/basicspacedata/query/class/tle_publish',
+        status=500, body='violated your query rate limit')
+
+    st = SpaceTrackClient('identity', 'password')
+
+    # Change ratelimiter period to speed up test
+    st._ratelimiter.period = 1
+
+    mock_callback = Mock()
+    st.callback = mock_callback
+
+    # Catch the exception when URL is called a second time and still gets HTTP 500
+    with pytest.raises(HTTPError):
+        st.tle_publish()
+
+    assert mock_callback.called
 
 
 @responses.activate
