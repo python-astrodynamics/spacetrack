@@ -24,7 +24,7 @@ if sys.version_info >= (3, 5):
 
 __all__ = tuple(__all__)
 
-__version__ = '0.1.0'
+__version__ = '0.9.0'
 __description__ = 'Python client for space-track.org'
 
 __license__ = 'MIT'
