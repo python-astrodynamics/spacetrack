@@ -188,7 +188,6 @@ def test_predicate_parse():
     assert predicate.values == ('a', 'b')
 
 
-
 def test_spacetrack_methods():
     """Verify that e.g. st.tle_publish calls st.generic_request('tle_publish')"""
     st = SpaceTrackClient('identity', 'password')
