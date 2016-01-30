@@ -27,6 +27,25 @@ requires = {
     'six',
 }
 
+
+def add_to_extras(extras_require, dest, source):
+    """Add dependencies from `source` extra to `dest` extra, handling
+    conditional dependencies.
+    """
+    for key, deps in list(extras_require.items()):
+        extra, _, condition = key.partition(':')
+        if extra == source:
+            if condition:
+                try:
+                    extras_require[dest + ':' + condition] |= deps
+                except KeyError:
+                    extras_require[dest + ':' + condition] = deps
+            else:
+                try:
+                    extras_require[dest] |= deps
+                except KeyError:
+                    extras_require[dest] = deps
+
 extras_require = dict()
 
 extras_require['test'] = {
@@ -55,28 +74,9 @@ extras_require['dev'] = {
 extras_require['async:python_version>="3.5"'] = {'aiohttp'}
 extras_require['test:python_version<"3.3"'] = {'mock'}
 
-
-def add_to_extras(dest, source):
-    """Add dependencies from `source` extra to `dest` extra, handling
-    conditional dependencies.
-    """
-    for key, deps in list(extras_require.items()):
-        extra, _, condition = key.partition(':')
-        if extra == source:
-            if condition:
-                try:
-                    extras_require[dest + ':' + condition] |= deps
-                except KeyError:
-                    extras_require[dest + ':' + condition] = deps
-            else:
-                try:
-                    extras_require[dest] |= deps
-                except KeyError:
-                    extras_require[dest] = deps
-
-add_to_extras('dev', 'test')
-add_to_extras('all', 'dev')
-add_to_extras('all', 'async')
+add_to_extras(extras_require, 'dev', 'test')
+add_to_extras(extras_require, 'all', 'dev')
+add_to_extras(extras_require, 'all', 'async')
 
 
 class PyTest(TestCommand):
