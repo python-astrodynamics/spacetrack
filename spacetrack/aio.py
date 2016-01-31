@@ -108,6 +108,16 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         if class_ not in self.request_classes:
             raise ValueError("Unknown request class '{}'".format(class_))
 
+        # Decode unicode unless class == download, including conversion of
+        # CRLF newlines to LF.
+        decode = (class_ != 'download')
+        if not decode and iter_lines:
+            error = (
+                'iter_lines disabled for binary data, since CRLF newlines '
+                'split over chunk boundaries would yield extra blank lines. '
+                'Use iter_content=True instead.')
+            raise ValueError(error)
+
         await self.authenticate()
 
         controller = self.request_classes[class_]
@@ -133,8 +143,6 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         resp = await self._ratelimited_get(url)
 
         await _raise_for_status(resp)
-
-        decode = (class_ != 'download')
 
         if iter_lines:
             return _AsyncLineIterator(resp, decode_unicode=decode)

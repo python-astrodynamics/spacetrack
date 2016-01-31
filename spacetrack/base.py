@@ -208,6 +208,16 @@ class SpaceTrackClient(object):
         if class_ not in self.request_classes:
             raise ValueError("Unknown request class '{}'".format(class_))
 
+        # Decode unicode unless class == download, including conversion of
+        # CRLF newlines to LF.
+        decode = (class_ != 'download')
+        if not decode and iter_lines:
+            error = (
+                'iter_lines disabled for binary data, since CRLF newlines '
+                'split over chunk boundaries would yield extra blank lines. '
+                'Use iter_content=True instead.')
+            raise ValueError(error)
+
         self.authenticate()
 
         controller = self.request_classes[class_]
@@ -239,9 +249,6 @@ class SpaceTrackClient(object):
         if resp.encoding is None:
             resp.encoding = 'UTF-8'
 
-        # Decode unicode unless controller is fileshare, including conversion of
-        # CRLF newlines to LF.
-        decode = (class_ != 'download')
         if iter_lines:
             return _iter_lines_generator(resp, decode_unicode=decode)
         elif iter_content:

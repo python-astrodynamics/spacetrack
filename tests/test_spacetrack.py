@@ -135,7 +135,7 @@ def test_generic_request():
     result = st.tle_publish()
     assert result['a'] == 5
 
-    # Just use
+    # Just use datetime to disambiguate URL from those above.
     responses.add(
         responses.GET,
         'https://www.space-track.org/basicspacedata/query/class/tle_publish'
@@ -147,6 +147,63 @@ def test_generic_request():
 
     assert result[0] == 'a' * (100 * 1024)
     assert result[1] == 'b'
+
+
+@responses.activate
+def test_bytes_response():
+    responses.add(
+        responses.POST, 'https://www.space-track.org/ajaxauth/login', json='""')
+
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/fileshare/modeldef/class/download',
+        json={
+            'controller': 'fileshare',
+            'data': [
+                {
+                    'Default': '0',
+                    'Extra': '',
+                    'Field': 'FILE_ID',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'int(10) unsigned'
+                },
+                {
+                    'Default': None,
+                    'Extra': '',
+                    'Field': 'FILE_CONTENET',
+                    'Key': '',
+                    'Null': 'YES',
+                    'Type': 'longblob'
+                }
+            ]})
+
+    data = b'bytes response \r\n'
+
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/fileshare/query/class/download'
+        '/format/stream',
+        body=data)
+
+    st = SpaceTrackClient('identity', 'password')
+    assert st.download(format='stream') == data
+
+    with pytest.raises(ValueError):
+        st.download(iter_lines=True, format='stream')
+
+    # Just use file_id to disambiguate URL from those above
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/fileshare/query/class/download'
+        '/file_id/1',
+        body=b'a' * (100 * 1024) + b'b')
+
+    result = list(st.download(
+        iter_content=True, file_id=1))
+
+    assert result[0] == b'a' * (100 * 1024)
+    assert result[1] == b'b'
 
 
 @responses.activate
