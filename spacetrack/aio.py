@@ -6,6 +6,7 @@ import time
 from collections.abc import AsyncIterator, Mapping
 
 import aiohttp
+import aiohttp.web_exceptions
 from aiohttp.helpers import parse_mimetype
 
 from .base import AuthenticationError, SpaceTrackClient, logger
@@ -46,6 +47,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             login_url = self.base_url + 'ajaxauth/login'
             data = {'identity': self.identity, 'password': self.password}
             resp = await self.session.post(login_url, data=data)
+
+            await _raise_for_status(resp)
 
             # If login failed, we get a JSON response with {'Login': 'Failed'}
             resp_data = await resp.json()
@@ -111,7 +114,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         url = ('{0}{1}/query/class/{2}'
                .format(self.base_url, controller, class_))
 
-        predicate_fields = await self._get_predicate_fields(class_)
+        predicates = await self.get_predicates(class_)
+        predicate_fields = {p.name for p in predicates}
         valid_fields = predicate_fields | {p.name for p in self.rest_predicates}
 
         for key, value in kwargs.items():
@@ -124,10 +128,36 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
             url += '/{key}/{value}'.format(key=key, value=value)
 
-        logger.info(url)
+        logger.debug(url)
 
+        resp = await self._ratelimited_get(url)
+
+        await _raise_for_status(resp)
+
+        decode = (class_ != 'download')
+
+        if iter_lines:
+            return _AsyncLineIterator(resp, decode_unicode=decode)
+        elif iter_content:
+            return _AsyncChunkIterator(resp, decode_unicode=decode)
+        else:
+            # If format is specified, return that format unparsed. Otherwise,
+            # parse the default JSON response.
+            if 'format' in kwargs:
+                if decode:
+                    # Replace CRLF newlines with LF, Python will handle platform
+                    # specific newlines if written to file.
+                    data = await resp.text()
+                    data = data.replace('\r', '')
+                else:
+                    data = await resp.read()
+                return data
+            else:
+                return await resp.json()
+
+    async def _ratelimited_get(self, *args, **kwargs):
         async with self._ratelimiter:
-            resp = await self.session.get(url)
+            resp = await self.session.get(*args, **kwargs)
 
         # It's possible that Space-Track will return HTTP status 500 with a
         # query rate limit violation. This can happen if a script is cancelled
@@ -148,31 +178,9 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
                 # Now retry
                 async with self._ratelimiter:
-                    resp = await self.session.get(url)
+                    resp = await self.session.get(*args, **kwargs)
 
-        _raise_for_status(resp)
-
-        decode = (controller != 'fileshare')
-
-        if iter_lines:
-            return _AsyncLineIterator(resp, decode_unicode=decode)
-        elif iter_content:
-            return _AsyncChunkIterator(resp, decode_unicode=decode)
-        else:
-            # If format is specified, return that format unparsed. Otherwise,
-            # parse the default JSON response.
-            if 'format' in kwargs:
-                # Replace CRLF newlines with LF, Python will handle platform
-                # specific newlines if written to file.
-                text = await resp.text()
-                return text.replace('\r', '')
-            else:
-                return await resp.json()
-
-    async def _get_predicate_fields(self, class_):
-        """Get valid predicate fields which can be passed as keyword arguments."""
-        predicates = await self.get_predicates(class_)
-        return {p.name for p in predicates}
+        return resp
 
     async def _download_predicate_data(self, class_):
         """Get raw predicate information for given request class, and cache for
@@ -184,8 +192,10 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         url = ('{0}{1}/modeldef/class/{2}'
                .format(self.base_url, controller, class_))
 
-        async with self._ratelimiter:
-            resp = await self.session.get(url)
+        resp = await self._ratelimited_get(url)
+
+        await _raise_for_status(resp)
+
         resp_json = await resp.json()
         return resp_json['data']
 
@@ -262,7 +272,7 @@ class _AsyncChunkIterator(_AsyncContentIteratorMixin):
         return data
 
 
-def _raise_for_status(response):
+async def _raise_for_status(response):
     """Raise an appropriate error for a given response.
 
     Arguments:
@@ -290,13 +300,27 @@ def _raise_for_status(response):
     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     """
     if 400 <= response.status < 600:
+        reason = response.reason
+
+        spacetrack_error_msg = None
+
+        try:
+            json = await response.json()
+            spacetrack_error_msg = json['error']
+        except (ValueError, KeyError):
+            pass
+
+        if not spacetrack_error_msg:
+            spacetrack_error_msg = await response.text()
+
+        if spacetrack_error_msg:
+            reason += '\nSpace-Track response:\n' + spacetrack_error_msg
+
         for err_name in aiohttp.web_exceptions.__all__:
             err = getattr(aiohttp.web_exceptions, err_name)
             if err.status_code == response.status:
                 payload = dict(
                     headers=response.headers,
-                    reason=response.reason,
+                    reason=reason,
                 )
-                if issubclass(err, aiohttp.web_exceptions._HTTPMove):
-                    raise err(response.headers['Location'], **payload)
                 raise err(**payload)
