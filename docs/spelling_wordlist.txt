@@ -2,6 +2,7 @@ booleans
 coroutine
 datetimes
 indices
+inline
 KiB
 login
 mixin
