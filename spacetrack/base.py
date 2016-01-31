@@ -148,7 +148,7 @@ class SpaceTrackClient(object):
             data = {'identity': self.identity, 'password': self.password}
             resp = self.session.post(login_url, data=data)
 
-            raise_for_status(resp)
+            _raise_for_status(resp)
 
             # If login failed, we get a JSON response with {'Login': 'Failed'}
             resp_data = resp.json()
@@ -234,7 +234,7 @@ class SpaceTrackClient(object):
 
         resp = self._ratelimited_get(url, stream=iter_lines or iter_content)
 
-        raise_for_status(resp)
+        _raise_for_status(resp)
 
         if resp.encoding is None:
             resp.encoding = 'UTF-8'
@@ -313,7 +313,7 @@ class SpaceTrackClient(object):
 
         resp = self._ratelimited_get(url)
 
-        raise_for_status(resp)
+        _raise_for_status(resp)
 
         return resp.json()['data']
 
@@ -445,7 +445,7 @@ def _iter_lines_generator(response, decode_unicode):
         yield pending
 
 
-def raise_for_status(response):
+def _raise_for_status(response):
     """Raises stored :class:`HTTPError`, if one occurred.
 
     This is the :meth:`requests.models.Response.raise_for_status` method,
