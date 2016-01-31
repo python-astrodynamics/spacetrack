@@ -36,10 +36,11 @@ class Predicate(ReprHelperMixin, object):
 
     The current goal of this class is to print the repr for the user.
     """
-    def __init__(self, name, type_, nullable=False, values=None):
+    def __init__(self, name, type_, nullable=False, default=None, values=None):
         self.name = name
         self.type_ = type_
         self.nullable = nullable
+        self.default = default
 
         # Values can be set e.g. for enum predicates
         self.values = values
@@ -48,6 +49,7 @@ class Predicate(ReprHelperMixin, object):
         r.keyword_from_attr('name')
         r.keyword_from_attr('type_')
         r.keyword_from_attr('nullable')
+        r.keyword_from_attr('default')
         if self.values is not None:
             r.keyword_from_attr('values')
 
@@ -333,6 +335,7 @@ class SpaceTrackClient(object):
             type_name = type_match.group(1)
             field_name = field['Field'].lower()
             nullable = (field['Null'] == 'YES')
+            default = field['Default']
 
             types = {
                 # Strings
@@ -361,7 +364,12 @@ class SpaceTrackClient(object):
                 raise ValueError("Unknown predicate type '{}'."
                                  .format(type_name))
 
-            predicate = Predicate(field_name, types[type_name], nullable)
+            predicate = Predicate(
+                name=field_name,
+                type_=types[type_name],
+                nullable=nullable,
+                default=default)
+
             if type_name == 'enum':
                 enum_match = enum_re.match(full_type)
                 if not enum_match:
