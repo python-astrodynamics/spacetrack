@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function
 import datetime as dt
 
 import pytest
+import spacetrack.operators as op
 from spacetrack.operators import _stringify_predicate_value
 
 stringify_data = [
@@ -21,3 +22,20 @@ stringify_data = [
 @pytest.mark.parametrize('value, expected', stringify_data)
 def test_stringify_predicate_value(value, expected):
     assert _stringify_predicate_value(value) == expected
+
+operator_data = [
+    (op.greater_than, 'test', '>test'),
+    (op.less_than, 'test', '<test'),
+    (op.not_equal, 'test', '<>test'),
+    (op.like, 'test', '~~test'),
+    (op.startswith, 'test', '^test'),
+]
+
+
+@pytest.mark.parametrize('function, value, expected', operator_data)
+def test_operators(function, value, expected):
+    assert function(value) == expected
+
+def test_inclusive_range():
+    assert op.inclusive_range('a', 'b') == 'a--b'
+
