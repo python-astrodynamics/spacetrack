@@ -87,7 +87,6 @@ class SpaceTrackClient(object):
         'organization': 'expandedspacedata',
         'file': 'fileshare',
         'download': 'fileshare',
-        'upload': 'fileshare',
     }
 
     # These predicates are available for every request class.
@@ -149,7 +148,7 @@ class SpaceTrackClient(object):
             data = {'identity': self.identity, 'password': self.password}
             resp = self.session.post(login_url, data=data)
 
-            resp.raise_for_status()
+            raise_for_status(resp)
 
             # If login failed, we get a JSON response with {'Login': 'Failed'}
             resp_data = resp.json()
@@ -217,7 +216,8 @@ class SpaceTrackClient(object):
 
         # Validate keyword argument names by querying valid predicates from
         # Space-Track
-        predicate_fields = self._get_predicate_fields(class_)
+        predicates = self.get_predicates(class_)
+        predicate_fields = {p.name for p in predicates}
         valid_fields = predicate_fields | {p.name for p in self.rest_predicates}
 
         for key, value in kwargs.items():
@@ -230,10 +230,41 @@ class SpaceTrackClient(object):
 
             url += '/{key}/{value}'.format(key=key, value=value)
 
-        logger.info(url)
+        logger.debug(url)
 
+        resp = self._ratelimited_get(url, stream=iter_lines or iter_content)
+
+        raise_for_status(resp)
+
+        if resp.encoding is None:
+            resp.encoding = 'UTF-8'
+
+        # Decode unicode unless controller is fileshare, including conversion of
+        # CRLF newlines to LF.
+        decode = (class_ != 'download')
+        if iter_lines:
+            return _iter_lines_generator(resp, decode_unicode=decode)
+        elif iter_content:
+            return _iter_content_generator(resp, decode_unicode=decode)
+        else:
+            # If format is specified, return that format unparsed. Otherwise,
+            # parse the default JSON response.
+            if 'format' in kwargs:
+                if decode:
+                    data = resp.text
+                    # Replace CRLF newlines with LF, Python will handle platform
+                    # specific newlines if written to file.
+                    data = data.replace('\r\n', '\n')
+                else:
+                    data = resp.content
+                return data
+            else:
+                return resp.json()
+
+    def _ratelimited_get(self, *args, **kwargs):
+        """Perform get request, handling rate limiting."""
         with self._ratelimiter:
-            resp = self.session.get(url, stream=iter_lines or iter_content)
+            resp = self.session.get(*args, **kwargs)
 
         # It's possible that Space-Track will return HTTP status 500 with a
         # query rate limit violation. This can happen if a script is cancelled
@@ -254,32 +285,9 @@ class SpaceTrackClient(object):
 
                 # Now retry
                 with self._ratelimiter:
-                    resp = self.session.get(url, stream=iter_lines or iter_content)
+                    resp = self.session.get(*args, **kwargs)
 
-        resp.raise_for_status()
-
-        if resp.encoding is None:
-            resp.encoding = 'UTF-8'
-
-        # Decode unicode unless controller is fileshare, including conversion of
-        # CRLF newlines to LF.
-        decode = (controller != 'fileshare')
-        if iter_lines:
-            return _iter_lines_generator(resp, decode_unicode=decode)
-        elif iter_content:
-            return _iter_content_generator(resp, decode_unicode=decode)
-        else:
-            # If format is specified, return that format unparsed. Otherwise,
-            # parse the default JSON response.
-            if 'format' in kwargs:
-                text = resp.text
-                if decode:
-                    # Replace CRLF newlines with LF, Python will handle platform
-                    # specific newlines if written to file.
-                    text = text.replace('\r\n', '\n')
-                return text
-            else:
-                return resp.json()
+        return resp
 
     def __getattr__(self, attr):
         if attr not in self.request_classes:
@@ -291,11 +299,6 @@ class SpaceTrackClient(object):
         function.get_predicates = partial(self.get_predicates, attr)
         return function
 
-    def _get_predicate_fields(self, class_):
-        """Get valid predicate fields which can be passed as keyword arguments."""
-        predicates = self.get_predicates(class_)
-        return {p.name for p in predicates}
-
     def _download_predicate_data(self, class_):
         """Get raw predicate information for given request class, and cache for
         subsequent calls.
@@ -306,10 +309,12 @@ class SpaceTrackClient(object):
         url = ('{0}{1}/modeldef/class/{2}'
                .format(self.base_url, controller, class_))
 
-        with self._ratelimiter:
-            resp = self.session.get(url)
+        logger.debug(url)
 
-        resp.raise_for_status()
+        resp = self._ratelimited_get(url)
+
+        raise_for_status(resp)
+
         return resp.json()['data']
 
     def get_predicates(self, class_):
@@ -438,3 +443,38 @@ def _iter_lines_generator(response, decode_unicode):
 
     if pending is not None:
         yield pending
+
+
+def raise_for_status(response):
+    """Raises stored :class:`HTTPError`, if one occurred.
+
+    This is the :meth:`requests.models.Response.raise_for_status` method,
+    modified to add the response from Space-Track, if given.
+    """
+
+    http_error_msg = ''
+
+    if 400 <= response.status_code < 500:
+        http_error_msg = '%s Client Error: %s for url: %s' % (
+            response.status_code, response.reason, response.url)
+
+    elif 500 <= response.status_code < 600:
+        http_error_msg = '%s Server Error: %s for url: %s' % (
+            response.status_code, response.reason, response.url)
+
+    if http_error_msg:
+        spacetrack_error_msg = None
+
+        try:
+            json = response.json()
+            spacetrack_error_msg = json['error']
+        except (ValueError, KeyError):
+            pass
+
+        if not spacetrack_error_msg:
+            spacetrack_error_msg = response.text
+
+        if spacetrack_error_msg:
+            http_error_msg += '\nSpace-Track response:\n' + spacetrack_error_msg
+
+        raise requests.HTTPError(http_error_msg, response=response)
