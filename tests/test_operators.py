@@ -36,6 +36,6 @@ operator_data = [
 def test_operators(function, value, expected):
     assert function(value) == expected
 
+
 def test_inclusive_range():
     assert op.inclusive_range('a', 'b') == 'a--b'
-
