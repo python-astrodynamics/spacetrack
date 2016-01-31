@@ -54,15 +54,15 @@ def test_generic_request_exceptions():
     with pytest.raises(ValueError):
         st.generic_request(class_='thisclassdoesnotexist')
 
-    def mock_get_predicate_fields(self, class_):
-        return set()
+    def mock_get_predicates(self, class_):
+        return []
 
     patch_authenticate = patch.object(SpaceTrackClient, 'authenticate')
 
-    patch_get_predicate_fields = patch.object(
-        SpaceTrackClient, '_get_predicate_fields', mock_get_predicate_fields)
+    patch_get_predicates = patch.object(
+        SpaceTrackClient, 'get_predicates', mock_get_predicates)
 
-    with patch_authenticate, patch_get_predicate_fields:
+    with patch_authenticate, patch_get_predicates:
         with pytest.raises(TypeError):
             st.generic_request('tle', madeupkeyword=None)
 
@@ -369,11 +369,13 @@ def test_repr():
     assert repr(st) == "SpaceTrackClient<identity='hello@example.com'>"
     assert 'mypassword' not in repr(st)
 
-    predicate = Predicate(name='a', type_='int', nullable=True)
-    assert repr(predicate) == "Predicate(name='a', type_='int', nullable=True)"
+    predicate = Predicate(name='a', type_='int', nullable=True, default=None)
+    reprstr = "Predicate(name='a', type_='int', nullable=True, default=None)"
+    assert repr(predicate) == reprstr
 
     predicate = Predicate(
-        name='a', type_='enum', nullable=True, values=('a', 'b'))
+        name='a', type_='enum', nullable=True, values=('a', 'b'), default=None)
 
-    reprstr = "Predicate(name='a', type_='enum', nullable=True, values=('a', 'b'))"
+    reprstr = ("Predicate(name='a', type_='enum', nullable=True, "
+               "default=None, values=('a', 'b'))")
     assert repr(predicate) == reprstr
