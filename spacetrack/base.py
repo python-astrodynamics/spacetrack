@@ -342,6 +342,9 @@ class SpaceTrackClient(object):
                 'char': 'str',
                 'varchar': 'str',
                 'longtext': 'str',
+                # varbinary only used for 'file' request class, for the
+                # 'file_link' predicate.
+                'varbinary': 'str',
                 # Integers
                 'bigint': 'int',
                 'int': 'int',
@@ -358,6 +361,8 @@ class SpaceTrackClient(object):
                 'datetime': 'datetime',
                 # Enum
                 'enum': 'enum',
+                # Bytes
+                'longblob': 'bytes',
             }
 
             if type_name not in types:
