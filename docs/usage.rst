@@ -63,7 +63,7 @@ The same example is shown below synchronously and asynchronously.
     import asyncio
 
     import spacetrack.operators as op
-    from spacetrack.aio import AsyncSpaceTrackClient
+    from spacetrack import AsyncSpaceTrackClient
 
 
     async def download_latest_tles():
