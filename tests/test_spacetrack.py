@@ -5,11 +5,13 @@ import datetime as dt
 import json
 
 import pytest
+import requests
 import responses
 from requests import HTTPError, Response
 from spacetrack import AuthenticationError, SpaceTrackClient
 from spacetrack.base import (
-    Predicate, _iter_content_generator, _iter_lines_generator)
+    Predicate, _iter_content_generator, _iter_lines_generator,
+    _raise_for_status)
 
 try:
     from unittest.mock import Mock, call, patch
@@ -253,6 +255,12 @@ def test_ratelimit_error():
     # Change ratelimiter period to speed up test
     st._ratelimiter.period = 1
 
+    # Do it first without our own callback, then with.
+
+    # Catch the exception when URL is called a second time and still gets HTTP 500
+    with pytest.raises(HTTPError):
+        st.tle_publish()
+
     mock_callback = Mock()
     st.callback = mock_callback
 
@@ -419,6 +427,45 @@ def test_authenticate():
     # Check that only one login request was made since successful
     # authentication
     assert len(responses.calls) == 2
+
+
+@responses.activate
+def test_raise_for_status():
+    responses.add(responses.GET, 'http://example.com/1',
+                  json={'error': 'problem'}, status=400)
+
+    responses.add(responses.GET, 'http://example.com/2',
+                  json={'wrongkey': 'problem'}, status=400)
+
+    responses.add(responses.GET, 'http://example.com/3',
+                  json='problem', status=400)
+
+    responses.add(responses.GET, 'http://example.com/4',
+                  status=400)
+
+    response1 = requests.get('http://example.com/1')
+    response2 = requests.get('http://example.com/2')
+    response3 = requests.get('http://example.com/3')
+    response4 = requests.get('http://example.com/4')
+
+    with pytest.raises(HTTPError) as exc:
+        _raise_for_status(response1)
+    assert 'Space-Track' in str(exc.value)
+    assert '\nproblem' in str(exc.value)
+
+    with pytest.raises(HTTPError) as exc:
+        _raise_for_status(response2)
+    assert 'Space-Track' in str(exc.value)
+    assert '{"wrongkey": "problem"}' in str(exc.value)
+
+    with pytest.raises(HTTPError) as exc:
+        _raise_for_status(response3)
+    assert 'Space-Track' in str(exc.value)
+    assert '\n"problem"' in str(exc.value)
+
+    with pytest.raises(HTTPError) as exc:
+        _raise_for_status(response4)
+    assert 'Space-Track' not in str(exc.value)
 
 
 def test_repr():

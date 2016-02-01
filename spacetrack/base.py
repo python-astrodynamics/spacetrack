@@ -474,7 +474,8 @@ def _raise_for_status(response):
 
         try:
             json = response.json()
-            spacetrack_error_msg = json['error']
+            if isinstance(json, Mapping):
+                spacetrack_error_msg = json['error']
         except (ValueError, KeyError):
             pass
 
