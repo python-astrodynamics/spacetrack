@@ -406,6 +406,10 @@ def test_authenticate():
     def request_callback(request):
         if 'wrongpassword' in request.body:
             return (200, dict(), json.dumps({'Login': 'Failed'}))
+        elif 'unknownresponse' in request.body:
+            # Space-Track doesn't respond like this, but make sure anything
+            # other than {'Login': 'Failed'} doesn't raise AuthenticationError
+            return (200, dict(), json.dumps({'Login': 'Successful'}))
         else:
             return (200, dict(), json.dumps(''))
 
@@ -428,6 +432,8 @@ def test_authenticate():
     # authentication
     assert len(responses.calls) == 2
 
+    st = SpaceTrackClient('identity', 'unknownresponse')
+    st.authenticate()
 
 @responses.activate
 def test_raise_for_status():
