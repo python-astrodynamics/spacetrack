@@ -435,6 +435,7 @@ def test_authenticate():
     st = SpaceTrackClient('identity', 'unknownresponse')
     st.authenticate()
 
+
 @responses.activate
 def test_raise_for_status():
     responses.add(responses.GET, 'http://example.com/1',
