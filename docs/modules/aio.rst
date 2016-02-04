@@ -12,7 +12,7 @@ Experimental ``asyncio`` API
    The ``asyncio`` API is not currently unit tested, use with caution.
 
 .. _`The rendered page can be found here`: http://pythonhosted.org/spacetrack/
-   modules/aio/
+   modules/aio.html
 
 .. automodule:: spacetrack.aio
    :members:

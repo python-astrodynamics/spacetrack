@@ -21,6 +21,6 @@ N/A
 
 First release.
 
-[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.9.0...HEAD
+[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.10.0...HEAD
 [0.10.0]: ttps://github.com/python-astrodynamics/spacetrack/compare/0.9.0...0.10.0
 [0.9.0]: https://github.com/python-astrodynamics/spacetrack/compare/e5fc088a96ec1557d44931e00500cdcef8349fad...0.9.0

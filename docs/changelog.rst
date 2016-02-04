@@ -1,8 +1,8 @@
 Change Log
 ==========
 
-`Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.9.0...HEAD>`__
-----------------------------------------------------------------------------------------
+`Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.10.0...HEAD>`__
+-----------------------------------------------------------------------------------------
 
 N/A
 
