@@ -4,6 +4,11 @@ Change Log
 `Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.9.0...HEAD>`__
 ----------------------------------------------------------------------------------------
 
+N/A
+
+`0.10.0 <ttps://github.com/python-astrodynamics/spacetrack/compare/0.9.0...0.10.0>`__ - 2016-02-04
+--------------------------------------------------------------------------------------------------
+
 Fixed
 ~~~~~
 
