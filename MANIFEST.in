@@ -1,0 +1,4 @@
+include LICENSE.txt
+include CHANGELOG.md
+include conftest.py
+recursive-include tests *.py
