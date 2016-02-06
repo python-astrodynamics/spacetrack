@@ -1,10 +1,10 @@
 # coding: utf-8
 from __future__ import absolute_import, division, print_function
 
-import subprocess
 from collections import OrderedDict
 
-from plumbum import local, FG
+from plumbum import FG, TF, local
+from plumbum.cmd import doc8, flake8, sphinx_build
 from shovel import task
 
 pytest = local['py.test']
@@ -12,20 +12,25 @@ pytest = local['py.test']
 
 @task
 def quick():
-    failed = OrderedDict.fromkeys(
-        ['test', 'docs', 'spelling', 'doc8', 'flake8'], False)
+    passed = OrderedDict()
 
-    failed['tests'] = bool(subprocess.call(['py.test', 'tests/']))
-    failed['docs'] = bool(subprocess.call(
-        ['sphinx-build', '-W', '-b', 'html', 'docs', 'docs/_build/html']))
-    failed['spelling'] = bool(subprocess.call([
-        'sphinx-build', '-W', '-b', 'spelling', 'docs', 'docs/_build/html']))
-    failed['doc8'] = bool(subprocess.call(['doc8', 'docs']))
-    failed['flake8'] = bool(subprocess.call(['flake8']))
+    passed['test'] = pytest['tests/'] & TF(FG=True)
+
+    passed['docs'] = (
+        sphinx_build['-W', '-b', 'spelling', 'docs', 'docs/_build/html'] &
+        TF(FG=True))
+
+    passed['spelling'] = (
+        sphinx_build['-W', '-b', 'spelling', 'docs', 'docs/_build/html'] &
+        TF(FG=True))
+
+    passed['doc8'] = doc8['docs'] & TF(FG=True)
+
+    passed['flake8'] = flake8 & TF(FG=True)
 
     print('\nSummary:')
-    for k, v in failed.items():
-        print('{:8s}: {}'.format(k, 'Fail' if v else 'Pass'))
+    for k, v in passed.items():
+        print('{:8s}: {}'.format(k, 'Pass' if v else 'Fail'))
 
 
 @task
