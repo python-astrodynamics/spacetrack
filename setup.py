@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 
 import re
 import sys
+from collections import defaultdict
 
 from setuptools import setup, find_packages
 from setuptools.command.test import test as TestCommand  # noqa
@@ -36,17 +37,11 @@ def add_to_extras(extras_require, dest, source):
         extra, _, condition = key.partition(':')
         if extra == source:
             if condition:
-                try:
-                    extras_require[dest + ':' + condition] |= deps
-                except KeyError:
-                    extras_require[dest + ':' + condition] = deps
+                extras_require[dest + ':' + condition] |= deps
             else:
-                try:
-                    extras_require[dest] |= deps
-                except KeyError:
-                    extras_require[dest] = deps
+                extras_require[dest] |= deps
 
-extras_require = dict()
+extras_require = defaultdict(set)
 
 extras_require['test'] = {
     'pytest>=2.7.3',
@@ -73,10 +68,13 @@ extras_require['dev'] = {
 
 extras_require['async:python_version>="3.5"'] = {'aiohttp'}
 extras_require['test:python_version<"3.3"'] = {'mock'}
+extras_require['test:python_version>="3.5"'] = {'pytest-asyncio'}
 
 add_to_extras(extras_require, 'dev', 'test')
 add_to_extras(extras_require, 'all', 'dev')
 add_to_extras(extras_require, 'all', 'async')
+
+extras_require = dict(extras_require)
 
 
 class PyTest(TestCommand):
