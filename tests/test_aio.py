@@ -2,7 +2,6 @@
 from __future__ import absolute_import, division, print_function
 
 import asyncio
-import sys
 from unittest.mock import Mock, patch
 
 import pytest
