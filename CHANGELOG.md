@@ -1,7 +1,8 @@
 # Change Log
 
 ## [Unreleased][unreleased]
-N/A
+### Fixed
+- `\r\n` to `\n` newline conversion for async chunk iterator.
 
 ## [0.10.0] - 2016-02-04
 ### Fixed

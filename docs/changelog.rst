@@ -4,7 +4,10 @@ Change Log
 `Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.10.0...HEAD>`__
 -----------------------------------------------------------------------------------------
 
-N/A
+Fixed
+~~~~~
+
+-  ``\r\n`` to ``\n`` newline conversion for async chunk iterator.
 
 `0.10.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.9.0...0.10.0>`__ - 2016-02-04
 ---------------------------------------------------------------------------------------------------
