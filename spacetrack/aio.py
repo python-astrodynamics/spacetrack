@@ -275,8 +275,11 @@ class _AsyncChunkIterator(_AsyncContentIteratorMixin):
 
         if self.decode_unicode:
             data = data.decode(self.get_encoding())
-            # Strip newlines
-            data = data.strip('\r')
+            # Replace CRLF newlines with LF, Python will handle
+            # platform specific newlines if written to file.
+            data = data.replace('\r\n', '\n')
+            # Chunk could be ['...\r', '\n...'], strip trailing \r
+            data = data.rstrip('\r')
         return data
 
 

@@ -2,11 +2,13 @@
 from __future__ import absolute_import, division, print_function
 
 import asyncio
+from collections.abc import AsyncIterator
 from unittest.mock import Mock, patch
 
 import pytest
 from aiohttp import ClientResponse
 from spacetrack import AsyncSpaceTrackClient, AuthenticationError
+from spacetrack.aio import _AsyncChunkIterator, _AsyncLineIterator
 
 
 @pytest.mark.asyncio
@@ -186,3 +188,41 @@ async def test_generic_request():
     response.close()
 
     st.close()
+
+
+@pytest.mark.asyncio
+async def test_async_iterator():
+    response = Mock()
+
+    class TestAsyncIterator(AsyncIterator):
+        def __init__(self):
+            self.i = 0
+
+        async def __anext__(self):
+            self.i += 1
+
+            if self.i > 5:
+                raise StopAsyncIteration
+            else:
+                return '{}\r\n'.format(self.i).encode('utf-8')
+
+    response.content = TestAsyncIterator()
+    ait = _AsyncLineIterator(response, True)
+    ait.get_encoding = lambda: 'utf-8'
+
+    lines = list()
+    async for line in ait:
+        lines.append(line)
+
+    assert lines == ['1', '2', '3', '4', '5']
+
+    response = Mock()
+    response.content.iter_chunked.return_value = TestAsyncIterator()
+    ait = _AsyncChunkIterator(response, True)
+    ait.get_encoding = lambda: 'utf-8'
+
+    chunks = list()
+    async for chunk in ait:
+        chunks.append(chunk)
+
+    assert chunks == ['1\n', '2\n', '3\n', '4\n', '5\n']
