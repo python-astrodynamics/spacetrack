@@ -1,8 +1,20 @@
 # Change Log
 
 ## [Unreleased][unreleased]
+N/A
+
+## [0.11.0]
+### Added
+- Some unit tests added for `AsyncSpaceTrackClient`.
+
 ### Fixed
 - `\r\n` to `\n` newline conversion for async chunk iterator.
+
+### Changed
+- `AsyncSpaceTrackClient` can no longer be imported from the top level
+  `spacetrack` module, since this would cause an error if optional
+  dependency `aiohttp` was not installed. It must be imported from
+  `spacetrack.aio`.
 
 ## [0.10.0] - 2016-02-04
 ### Fixed
@@ -22,6 +34,7 @@
 
 First release.
 
-[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.10.0...HEAD
+[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.11.0...HEAD
+[0.10.0]: https://github.com/python-astrodynamics/spacetrack/compare/0.10.0...0.11.0
 [0.10.0]: https://github.com/python-astrodynamics/spacetrack/compare/0.9.0...0.10.0
 [0.9.0]: https://github.com/python-astrodynamics/spacetrack/compare/e5fc088a96ec1557d44931e00500cdcef8349fad...0.9.0

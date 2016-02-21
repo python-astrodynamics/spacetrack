@@ -9,7 +9,10 @@ Experimental ``asyncio`` API
 
 .. warning::
 
-   The ``asyncio`` API is not currently unit tested, use with caution.
+   The ``asyncio`` API is not thoroughly unit tested, use with caution. Please
+   report issues on `GitHub`_.
+
+.. _`GitHub`: https://github.com/python-astrodynamics/spacetrack
 
 .. _`The rendered page can be found here`: http://pythonhosted.org/spacetrack/
    modules/aio.html
