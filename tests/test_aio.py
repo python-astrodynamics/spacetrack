@@ -1,14 +1,15 @@
 # coding: utf-8
 from __future__ import absolute_import, division, print_function
 
-import asyncio
 from collections.abc import AsyncIterator
 from unittest.mock import Mock, patch
 
+import asyncio
 import pytest
 from aiohttp import ClientResponse
-from spacetrack import AsyncSpaceTrackClient, AuthenticationError
-from spacetrack.aio import _AsyncChunkIterator, _AsyncLineIterator
+from spacetrack import AuthenticationError
+from spacetrack.aio import (
+    AsyncSpaceTrackClient, _AsyncChunkIterator, _AsyncLineIterator)
 
 
 @pytest.mark.asyncio
