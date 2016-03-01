@@ -18,7 +18,7 @@ Fixed
 Changed
 ~~~~~~~
 
--  Documentation included in sdist.
+-  Documentation included in source distribution.
 
 `0.11.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.10.0...0.11.0>`__
 ---------------------------------------------------------------------------------------

@@ -9,7 +9,7 @@ N/A
   `AsyncSpaceTrackClient`
 
 ### Changed
-- Documentation included in sdist.
+- Documentation included in source distribution.
 
 [ratelimiter]: https://pypi.python.org/pypi/ratelimiter
 
