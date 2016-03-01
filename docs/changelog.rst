@@ -1,13 +1,27 @@
 Change Log
 ==========
 
-`Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.11.0...HEAD>`__
+`Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.11.1...HEAD>`__
 -----------------------------------------------------------------------------------------
 
 N/A
 
-[0.11.0]
---------
+`0.11.1 <https://github.com/python-astrodynamics/spacetrack/compare/0.11.0...0.11.1>`__
+---------------------------------------------------------------------------------------
+
+Fixed
+~~~~~
+
+-  Bump `ratelimiter <https://pypi.python.org/pypi/ratelimiter>`__
+   version to improve rate limiting for ``AsyncSpaceTrackClient``
+
+Changed
+~~~~~~~
+
+-  Documentation included in sdist.
+
+`0.11.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.10.0...0.11.0>`__
+---------------------------------------------------------------------------------------
 
 Added
 ~~~~~
