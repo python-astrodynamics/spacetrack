@@ -2,11 +2,13 @@
 from __future__ import absolute_import, division, print_function
 
 import asyncio
+import ssl
 import time
 from collections.abc import AsyncIterator, Mapping
 
 import aiohttp
 import aiohttp.web_exceptions
+import requests.certs
 from aiohttp.helpers import parse_mimetype
 
 from .base import AuthenticationError, SpaceTrackClient, logger
@@ -33,7 +35,10 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
     """
     @staticmethod
     def _create_session():
-        return aiohttp.ClientSession()
+        # Use requests/certifi CA file
+        ctx = ssl.create_default_context(cafile=requests.certs.where())
+        connector = aiohttp.TCPConnector(ssl_context=ctx)
+        return aiohttp.ClientSession(connector=connector)
 
     async def _ratelimit_callback(self, until):
         duration = int(round(until - time.time()))
