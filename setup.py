@@ -51,7 +51,6 @@ extras_require['test'] = {
 extras_require['dev'] = {
     'doc8',
     'flake8',
-    'flake8-coding',
     'flake8-future-import',
     'pep8-naming',
     'plumbum',
