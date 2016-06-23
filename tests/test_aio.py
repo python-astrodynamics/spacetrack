@@ -98,7 +98,7 @@ async def test_generic_request():
         result.set_result(None)
         return result
 
-    def mock_download_predicate_data(self, class_):
+    def mock_download_predicate_data(self, class_, controller=None):
         result = asyncio.Future()
         data = [
             {

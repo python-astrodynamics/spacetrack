@@ -68,6 +68,51 @@ def test_generic_request_exceptions():
         with pytest.raises(TypeError):
             st.generic_request('tle', madeupkeyword=None)
 
+    with pytest.raises(ValueError):
+        st.generic_request(class_='tle', controller='nonsense')
+
+    with pytest.raises(ValueError):
+        st.generic_request(class_='nonsense', controller='basicspacedata')
+
+    with pytest.raises(AttributeError):
+        st.basicspacedata.blahblah
+
+
+def test_get_predicates_exceptions():
+    st = SpaceTrackClient('identity', 'password')
+
+    with pytest.raises(ValueError):
+        st.get_predicates(class_='tle', controller='nonsense')
+
+    with pytest.raises(ValueError):
+        st.get_predicates(class_='nonsense', controller='basicspacedata')
+
+
+
+def test_get_predicates():
+    st = SpaceTrackClient('identity', 'password')
+
+    patch_authenticate = patch.object(SpaceTrackClient, 'authenticate')
+
+    patch_get_predicates = patch.object(SpaceTrackClient, 'get_predicates')
+
+    with patch_authenticate, patch_get_predicates as mock_get_predicates:
+        st.tle.get_predicates()
+        st.basicspacedata.tle.get_predicates()
+        st.basicspacedata.get_predicates('tle')
+        st.get_predicates('tle')
+        st.get_predicates('tle', 'basicspacedata')
+
+        expected_calls = [
+            call(class_='tle', controller='basicspacedata'),
+            call(class_='tle', controller='basicspacedata'),
+            call(class_='tle', controller='basicspacedata'),
+            call('tle'),
+            call('tle', 'basicspacedata')
+        ]
+
+        assert mock_get_predicates.call_args_list == expected_calls
+
 
 @responses.activate
 def test_generic_request():
@@ -388,17 +433,33 @@ def test_predicate_parse():
     assert predicate.values == ('a', 'b')
 
 
-def test_spacetrack_methods():
+def test_bare_spacetrack_methods():
     """Verify that e.g. st.tle_publish calls st.generic_request('tle_publish')"""
     st = SpaceTrackClient('identity', 'password')
+    seen = set()
     with patch.object(SpaceTrackClient, 'generic_request') as mock_generic_request:
-        for class_ in st.request_classes:
-            method = getattr(st, class_)
-            method()
-            assert mock_generic_request.call_args == call(class_)
+        for controller, classes in st.request_controllers.items():
+            for class_ in classes:
+                if class_ in seen:
+                    continue
+                seen.add(class_)
+                method = getattr(st, class_)
+                method()
+                assert mock_generic_request.call_args == call(class_=class_, controller=controller)
 
     with pytest.raises(AttributeError):
         st.madeupmethod()
+
+
+def test_controller_spacetrack_methods():
+    st = SpaceTrackClient('identity', 'password')
+    with patch.object(SpaceTrackClient, 'generic_request') as mock_generic_request:
+        for controller, classes in st.request_controllers.items():
+            for class_ in classes:
+                controller_proxy = getattr(st, controller)
+                method = getattr(controller_proxy, class_)
+                method()
+                assert mock_generic_request.call_args == call(class_=class_, controller=controller)
 
 
 @responses.activate
@@ -490,3 +551,7 @@ def test_repr():
     reprstr = ("Predicate(name='a', type_='enum', nullable=True, "
                "default=None, values=('a', 'b'))")
     assert repr(predicate) == reprstr
+
+    controller_proxy = st.basicspacedata
+    reprstr = "_ControllerProxy<controller='basicspacedata'>"
+    assert repr(controller_proxy) == reprstr
