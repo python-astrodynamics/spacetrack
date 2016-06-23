@@ -1,7 +1,24 @@
 # Change Log
 
 ## [Unreleased][unreleased]
-N/A
+### Added
+- Request controller can be passed explicitly to methods that take a request
+  class, because some request classes are present in more than one controller.
+- Request controller proxy attribute, e.g. `SpaceTrackClient.fileshare.file()`,
+  which is equivalent to
+  `SpaceTrackClient.generic_request('file', controller='fileshare')`.
+### Fixed
+- `/modeldef` API not queried if no predicates are passed. This allows
+  `spephemeris/download` to be used, which doesn't have a model definition.
+### Changed
+- Calling request class methods uses first request controller that matches. The
+  order is stored in the keys of the `SpaceTrackClient.request_controllers`
+  ordered dict, currently `basicspacedata`, `expandedspacedata`, `fileshare`,
+  `spephemeris`. Any new request controllers will be added to the end, to
+  preserve lookup order. New request classes that would change the order will
+  accompany a major version bump.
+- `AsyncSpaceTrackClient` uses requests' CA file for same experience with both
+  clients.
 
 ## [0.11.1]
 ### Fixed

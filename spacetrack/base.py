@@ -4,7 +4,8 @@ from __future__ import absolute_import, division, print_function
 import re
 import threading
 import time
-from collections import Mapping
+import weakref
+from collections import Mapping, OrderedDict
 from functools import partial
 
 import requests
@@ -68,25 +69,44 @@ class SpaceTrackClient(object):
     """
     base_url = 'https://www.space-track.org/'
 
-    # This dictionary is a mapping of request classes to request controllers.
-    # Each class is accessible as a method on this class.
-    request_classes = {
-        'tle': 'basicspacedata',
-        'tle_latest': 'basicspacedata',
-        'tle_publish': 'basicspacedata',
-        'omm': 'basicspacedata',
-        'boxscore': 'basicspacedata',
-        'satcat': 'basicspacedata',
-        'launch_site': 'basicspacedata',
-        'satcat_change': 'basicspacedata',
-        'satcat_debut': 'basicspacedata',
-        'decay': 'basicspacedata',
-        'tip': 'basicspacedata',
-        'announcement': 'basicspacedata',
-        'cdm': 'expandedspacedata',
-        'organization': 'expandedspacedata',
-        'file': 'fileshare',
-        'download': 'fileshare',
+    # "request class" methods will be looked by request controller in this
+    # order
+    request_controllers = OrderedDict.fromkeys([
+        'basicspacedata',
+        'expandedspacedata',
+        'fileshare',
+        'spephemeris',
+    ])
+
+    request_controllers['basicspacedata'] = {
+        'tle',
+        'tle_latest',
+        'tle_publish',
+        'omm',
+        'boxscore',
+        'satcat',
+        'launch_site',
+        'satcat_change',
+        'satcat_debut',
+        'decay',
+        'tip',
+        'announcement',
+    }
+
+    request_controllers['expandedspacedata'] = {
+        'cdm',
+        'organization',
+    }
+
+    request_controllers['fileshare'] = {
+        'file',
+        'download',
+    }
+
+    request_controllers['spephemeris'] = {
+        'download',
+        'file',
+        'file_history',
     }
 
     # These predicates are available for every request class.
@@ -113,10 +133,11 @@ class SpaceTrackClient(object):
 
         self._authenticated = False
         self._predicates = dict()
+        self._controller_proxies = dict()
 
         # "Space-track throttles API use in order to maintain consistent
-        # performance for all users. To avoid error messages, please limit your
-        # query frequency to less than 20 requests per minute."
+        # performance for all users. To avoid error messages, please limit
+        # your query frequency to less than 20 requests per minute."
         self._ratelimiter = RateLimiter(
             max_calls=19, period=60, callback=self._ratelimit_callback)
 
@@ -159,7 +180,7 @@ class SpaceTrackClient(object):
             self._authenticated = True
 
     def generic_request(self, class_, iter_lines=False, iter_content=False,
-                        **kwargs):
+                        controller=None, **kwargs):
         """Generic Space-Track query.
 
         The request class methods use this method internally; the following
@@ -174,6 +195,7 @@ class SpaceTrackClient(object):
             class_: Space-Track request class name
             iter_lines: Yield result line by line
             iter_content: Yield result in 100 KiB chunks.
+            controller: Optionally specify request controller to use.
             **kwargs: These keywords must match the predicate fields on
                 Space-Track. You may check valid keywords with the following
                 snippet:
@@ -205,8 +227,17 @@ class SpaceTrackClient(object):
         if iter_lines and iter_content:
             raise ValueError('iter_lines and iter_content cannot both be True')
 
-        if class_ not in self.request_classes:
-            raise ValueError("Unknown request class '{}'".format(class_))
+        if controller is None:
+            controller = self._find_controller(class_)
+        else:
+            classes = self.request_controllers.get(controller, None)
+            if classes is None:
+                raise ValueError(
+                    'Unknown request controller {!r}'.format(controller))
+            if class_ not in classes:
+                raise ValueError(
+                    'Unknown request class {!r} for controller {!r}'
+                    .format(class_, controller))
 
         # Decode unicode unless class == download, including conversion of
         # CRLF newlines to LF.
@@ -220,25 +251,25 @@ class SpaceTrackClient(object):
 
         self.authenticate()
 
-        controller = self.request_classes[class_]
         url = ('{0}{1}/query/class/{2}'
                .format(self.base_url, controller, class_))
 
-        # Validate keyword argument names by querying valid predicates from
-        # Space-Track
-        predicates = self.get_predicates(class_)
-        predicate_fields = {p.name for p in predicates}
-        valid_fields = predicate_fields | {p.name for p in self.rest_predicates}
+        if kwargs:
+            # Validate keyword argument names by querying valid predicates from
+            # Space-Track
+            predicates = self.get_predicates(class_, controller)
+            predicate_fields = {p.name for p in predicates}
+            valid_fields = predicate_fields | {p.name for p in self.rest_predicates}
 
-        for key, value in kwargs.items():
-            if key not in valid_fields:
-                raise TypeError(
-                    "'{class_}' got an unexpected argument '{key}'"
-                    .format(class_=class_, key=key))
+            for key, value in kwargs.items():
+                if key not in valid_fields:
+                    raise TypeError(
+                        "'{class_}' got an unexpected argument '{key}'"
+                        .format(class_=class_, key=key))
 
-            value = _stringify_predicate_value(value)
+                value = _stringify_predicate_value(value)
 
-            url += '/{key}/{value}'.format(key=key, value=value)
+                url += '/{key}/{value}'.format(key=key, value=value)
 
         logger.debug(url)
 
@@ -297,21 +328,47 @@ class SpaceTrackClient(object):
         return resp
 
     def __getattr__(self, attr):
-        if attr not in self.request_classes:
+        if attr in self.request_controllers:
+            controller_proxy = self._controller_proxies.get(attr, None)
+            if controller_proxy is None:
+                controller_proxy = _ControllerProxy(self, attr)
+                self._controller_proxies[attr] = controller_proxy
+            return controller_proxy
+
+        try:
+            controller = self._find_controller(attr)
+        except ValueError:
             raise AttributeError(
                 "'{name}' object has no attribute '{attr}'"
-                .format(name=self.__class__.__name__, attr=attr))
+                    .format(name=self.__class__.__name__, attr=attr))
 
-        function = partial(self.generic_request, attr)
-        function.get_predicates = partial(self.get_predicates, attr)
+        # generic_request can resolve the controller itself, but we
+        # pass it because we have to check if the class_ is owned
+        # by a controller here anyway.
+        function = partial(
+            self.generic_request, class_=attr, controller=controller)
+        function.get_predicates = partial(
+            self.get_predicates, class_=attr, controller=controller)
         return function
 
-    def _download_predicate_data(self, class_):
+    def _find_controller(self, class_):
+        """Find first controller that matches given request class.
+
+        Order is specified by the keys of
+        ``SpaceTrackClient.request_controllers``
+        (:class:`~collections.OrderedDict`)
+        """
+        for controller, classes in self.request_controllers.items():
+            if class_ in classes:
+                return controller
+        else:
+            raise ValueError('Unknown request class {!r}'.format(class_))
+
+    def _download_predicate_data(self, class_, controller):
         """Get raw predicate information for given request class, and cache for
         subsequent calls.
         """
         self.authenticate()
-        controller = self.request_classes[class_]
 
         url = ('{0}{1}/modeldef/class/{2}'
                .format(self.base_url, controller, class_))
@@ -324,12 +381,23 @@ class SpaceTrackClient(object):
 
         return resp.json()['data']
 
-    def get_predicates(self, class_):
+    def get_predicates(self, class_, controller=None):
         """Get full predicate information for given request class, and cache
         for subsequent calls.
         """
         if class_ not in self._predicates:
-            predicates_data = self._download_predicate_data(class_)
+            if controller is None:
+                controller = self._find_controller(class_)
+            else:
+                classes = self.request_controllers.get(controller, None)
+                if classes is None:
+                    raise ValueError(
+                        'Unknown request controller {!r}'.format(controller))
+                if class_ not in classes:
+                    raise ValueError(
+                        'Unknown request class {!r}'.format(class_))
+
+            predicates_data = self._download_predicate_data(class_, controller)
             predicate_objects = self._parse_predicates_data(predicates_data)
             self._predicates[class_] = predicate_objects
 
@@ -404,6 +472,43 @@ class SpaceTrackClient(object):
         r.parantheses = ('<', '>')
         r.keyword_from_attr('identity')
         return str(r)
+
+
+class _ControllerProxy(object):
+    """Proxies request class methods with a preset request controller."""
+    def __init__(self, client, controller):
+        # The client will cache _ControllerProxy instances, so only store
+        # a weak reference to it.
+        self.client = weakref.proxy(client)
+        self.controller = controller
+
+    def __getattr__(self, attr):
+        if attr not in self.client.request_controllers[self.controller]:
+            raise AttributeError(
+                "'{self!r}' object has no attribute '{attr}'"
+                    .format(self=self, attr=attr))
+
+        function = partial(
+            self.client.generic_request, class_=attr,
+            controller=self.controller)
+        function.get_predicates = partial(
+            self.client.get_predicates, class_=attr,
+            controller=self.controller)
+
+        return function
+
+    def __repr__(self):
+        r = ReprHelper(self)
+        r.parantheses = ('<', '>')
+        r.keyword_from_attr('controller')
+        return str(r)
+
+    def get_predicates(self, class_):
+        """Proxy ``get_predicates`` to client with stored request
+        controller.
+        """
+        return self.client.get_predicates(
+            class_=class_, controller=self.controller)
 
 
 def _iter_content_generator(response, decode_unicode):

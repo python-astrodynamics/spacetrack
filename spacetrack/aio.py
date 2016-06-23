@@ -63,7 +63,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
             self._authenticated = True
 
-    async def generic_request(self, class_, iter_lines=False,
+    async def generic_request(self, class_, iter_lines=False, controller=None,
                               iter_content=False, **kwargs):
         """Generic Space-Track query coroutine.
 
@@ -79,6 +79,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             class_: Space-Track request class name
             iter_lines: Yield result line by line
             iter_content: Yield result in 100 KiB chunks.
+            controller: Optionally specify request controller to use.
             **kwargs: These keywords must match the predicate fields on
                 Space-Track. You may check valid keywords with the following
                 snippet:
@@ -110,8 +111,17 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         if iter_lines and iter_content:
             raise ValueError('iter_lines and iter_content cannot both be True')
 
-        if class_ not in self.request_classes:
-            raise ValueError("Unknown request class '{}'".format(class_))
+        if controller is None:
+            controller = self._find_controller(class_)
+        else:
+            classes = self.request_controllers.get(controller, None)
+            if classes is None:
+                raise ValueError(
+                    'Unknown request controller {!r}'.format(controller))
+            if class_ not in classes:
+                raise ValueError(
+                    'Unknown request class {!r} for controller {!r}'
+                    .format(class_, controller))
 
         # Decode unicode unless class == download, including conversion of
         # CRLF newlines to LF.
@@ -125,23 +135,23 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
         await self.authenticate()
 
-        controller = self.request_classes[class_]
         url = ('{0}{1}/query/class/{2}'
                .format(self.base_url, controller, class_))
 
-        predicates = await self.get_predicates(class_)
-        predicate_fields = {p.name for p in predicates}
-        valid_fields = predicate_fields | {p.name for p in self.rest_predicates}
+        if kwargs:
+            predicates = await self.get_predicates(class_)
+            predicate_fields = {p.name for p in predicates}
+            valid_fields = predicate_fields | {p.name for p in self.rest_predicates}
 
-        for key, value in kwargs.items():
-            if key not in valid_fields:
-                raise TypeError(
-                    "'{class_}' got an unexpected argument '{key}'"
-                    .format(class_=class_, key=key))
+            for key, value in kwargs.items():
+                if key not in valid_fields:
+                    raise TypeError(
+                        "'{class_}' got an unexpected argument '{key}'"
+                        .format(class_=class_, key=key))
 
-            value = _stringify_predicate_value(value)
+                value = _stringify_predicate_value(value)
 
-            url += '/{key}/{value}'.format(key=key, value=value)
+                url += '/{key}/{value}'.format(key=key, value=value)
 
         logger.debug(url)
 
@@ -195,12 +205,11 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
         return resp
 
-    async def _download_predicate_data(self, class_):
+    async def _download_predicate_data(self, class_, controller):
         """Get raw predicate information for given request class, and cache for
         subsequent calls.
         """
         await self.authenticate()
-        controller = self.request_classes[class_]
 
         url = ('{0}{1}/modeldef/class/{2}'
                .format(self.base_url, controller, class_))
@@ -212,12 +221,24 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         resp_json = await resp.json()
         return resp_json['data']
 
-    async def get_predicates(self, class_):
+    async def get_predicates(self, class_, controller=None):
         """Get full predicate information for given request class, and cache
         for subsequent calls.
         """
         if class_ not in self._predicates:
-            predicates_data = await self._download_predicate_data(class_)
+            if controller is None:
+                controller = self._find_controller(class_)
+            else:
+                classes = self.request_controllers.get(controller, None)
+                if classes is None:
+                    raise ValueError(
+                        'Unknown request controller {!r}'.format(controller))
+                if class_ not in classes:
+                    raise ValueError(
+                        'Unknown request class {!r}'.format(class_))
+
+            predicates_data = await self._download_predicate_data(
+                class_, controller)
             predicate_objects = self._parse_predicates_data(predicates_data)
             self._predicates[class_] = predicate_objects
 
