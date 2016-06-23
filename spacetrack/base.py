@@ -340,7 +340,7 @@ class SpaceTrackClient(object):
         except ValueError:
             raise AttributeError(
                 "'{name}' object has no attribute '{attr}'"
-                    .format(name=self.__class__.__name__, attr=attr))
+                .format(name=self.__class__.__name__, attr=attr))
 
         # generic_request can resolve the controller itself, but we
         # pass it because we have to check if the class_ is owned
@@ -486,7 +486,7 @@ class _ControllerProxy(object):
         if attr not in self.client.request_controllers[self.controller]:
             raise AttributeError(
                 "'{self!r}' object has no attribute '{attr}'"
-                    .format(self=self, attr=attr))
+                .format(self=self, attr=attr))
 
         function = partial(
             self.client.generic_request, class_=attr,

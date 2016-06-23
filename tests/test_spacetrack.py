@@ -88,7 +88,6 @@ def test_get_predicates_exceptions():
         st.get_predicates(class_='nonsense', controller='basicspacedata')
 
 
-
 def test_get_predicates():
     st = SpaceTrackClient('identity', 'password')
 
@@ -445,7 +444,8 @@ def test_bare_spacetrack_methods():
                 seen.add(class_)
                 method = getattr(st, class_)
                 method()
-                assert mock_generic_request.call_args == call(class_=class_, controller=controller)
+                expected = call(class_=class_, controller=controller)
+                assert mock_generic_request.call_args == expected
 
     with pytest.raises(AttributeError):
         st.madeupmethod()
@@ -459,7 +459,8 @@ def test_controller_spacetrack_methods():
                 controller_proxy = getattr(st, controller)
                 method = getattr(controller_proxy, class_)
                 method()
-                assert mock_generic_request.call_args == call(class_=class_, controller=controller)
+                expected = call(class_=class_, controller=controller)
+                assert mock_generic_request.call_args == expected
 
 
 @responses.activate
