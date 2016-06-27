@@ -7,6 +7,8 @@
 - Request controller proxy attribute, e.g. `SpaceTrackClient.fileshare.file()`,
   which is equivalent to
   `SpaceTrackClient.generic_request('file', controller='fileshare')`.
+- `dir(SpaceTrackClient(...))` now includes the request controllers and request
+  classes so it's easier to see can be called.
 ### Fixed
 - `/modeldef` API not queried if no predicates are passed. This allows
   `spephemeris/download` to be used, which doesn't have a model definition.

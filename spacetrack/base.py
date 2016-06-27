@@ -394,6 +394,18 @@ class SpaceTrackClient(object):
             self.get_predicates, class_=attr, controller=controller)
         return function
 
+    def __dir__(self):
+        """Include request controllers and request classes."""
+        attrs = list(self.__dict__)
+        request_classes = {
+            class_ for classes in self.request_controllers.values()
+            for class_ in classes}
+
+        attrs += list(request_classes)
+        attrs += list(self.request_controllers)
+
+        return sorted(attrs)
+
     def _find_controller(self, class_):
         """Find first controller that matches given request class.
 
