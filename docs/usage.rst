@@ -11,15 +11,32 @@ Usage
 
 Request classes are presented as methods on the
 :class:`~spacetrack.base.SpaceTrackClient` object. For example,
-``st.tle_publish()``. Request predicates are passed as keyword arguments. Valid
+``st.tle_publish()``. Each request class is part of a request controller.
+Since most request classes are only part of one request controller,
+``spacetrack`` looks up the controller for you. It can be specified explicitly
+in several ways. All the following are equivalent:
+
+.. code-block:: python
+
+    st.tle_publish()
+    st.tle_publish(controller='basicspacedata')
+    st.basicspacedata.tle_publish()
+    st.generic_request('tle_publish')
+    st.generic_request('tle_publish', controller='basicspacedata')
+
+Request predicates are passed as keyword arguments. Valid
 arguments can be checked using the
-:meth:`~spacetrack.base.SpaceTrackClient.get_predicates` method.
+:meth:`~spacetrack.base.SpaceTrackClient.get_predicates` method. The following
+are equivalent:
 
 .. code-block:: python
 
     st.tle_publish.get_predicates()
-    # which is equivalent to
+    st.tle_publish.get_predicates(controller='basicspacedata')
+    st.basicspacedata.tle_publish.get_predicates()
+    st.basicspacedata.get_predicates('tle_publish')
     st.get_predicates('tle_publish')
+    st.get_predicates('tle_publish', controller='basicspacedata')
 
 Returned object:
 

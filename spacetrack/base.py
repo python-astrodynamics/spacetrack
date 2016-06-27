@@ -66,6 +66,32 @@ class SpaceTrackClient(object):
 
     .. _`Space-Track documentation`: https://www.space-track.org/documentation
         #api-requestClasses
+
+    .. data:: request_controllers
+
+        Ordered dictionary of request controllers and their request classes in
+        the following order.
+
+        - `basicspacedata`
+        - `expandedspacedata`
+        - `fileshare`
+        - `spephemeris`
+
+        For example, if the ``spacetrack.file`` method is used without
+        specifying which controller, the client will choose the `fileshare`
+        controller (which comes before `spephemeris`).
+
+        .. note::
+
+            If new request classes and/or controllers are added to the
+            Space-Track API but not yet to this library, you can safely
+            subclass :class:`SpaceTrackClient` with a copy of this ordered
+            dictionary to add them.
+
+            That said, please open an issue on `GitHub`_ for me to add them to
+            the library.
+
+            .. _`GitHub`: https://github.com/python-astrodynamics/spacetrack
     """
     base_url = 'https://www.space-track.org/'
 
@@ -163,6 +189,10 @@ class SpaceTrackClient(object):
 
         Raises:
             spacetrack.base.AuthenticationError: Incorrect login details.
+
+        .. note::
+
+            This method is called automatically when required.
         """
         if not self._authenticated:
             login_url = self.base_url + 'ajaxauth/login'
@@ -183,16 +213,29 @@ class SpaceTrackClient(object):
                         controller=None, **kwargs):
         """Generic Space-Track query.
 
-        The request class methods use this method internally; the following
-        two lines are equivalent:
+        The request class methods use this method internally; the public
+        API is as follows:
 
         .. code-block:: python
 
             spacetrack.tle_publish(*args, **kwargs)
+            spacetrack.basicspacedata.tle_publish(*args, **kwargs)
+            spacetrack.file(*args, **kwargs)
+            spacetrack.fileshare.file(*args, **kwargs)
+            spacetrack.spephemeris.file(*args, **kwargs)
+
+        They resolve to the following calls respectively:
+
+        .. code-block:: python
+
             spacetrack.generic_request('tle_publish', *args, **kwargs)
+            spacetrack.generic_request('tle_publish', *args, controller='basicspacedata', **kwargs)
+            spacetrack.generic_request('file', *args, **kwargs)
+            spacetrack.generic_request('file', *args, controller='fileshare', **kwargs)
+            spacetrack.generic_request('file', *args, controller='spephemeris', **kwargs)
 
         Parameters:
-            class_: Space-Track request class name
+            class\_: Space-Track request class name
             iter_lines: Yield result line by line
             iter_content: Yield result in 100 KiB chunks.
             controller: Optionally specify request controller to use.

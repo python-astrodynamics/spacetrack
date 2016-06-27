@@ -67,13 +67,26 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                               iter_content=False, **kwargs):
         """Generic Space-Track query coroutine.
 
-        The request class methods use this method internally; the following
-        two lines are equivalent:
+        The request class methods use this method internally; the public
+        API is as follows:
 
         .. code-block:: python
 
-            await spacetrack.tle_publish(*args, **kwargs)
-            await spacetrack.generic_request('tle_publish', *args, **kwargs)
+            spacetrack.tle_publish(*args, **kwargs)
+            spacetrack.basicspacedata.tle_publish(*args, **kwargs)
+            spacetrack.file(*args, **kwargs)
+            spacetrack.fileshare.file(*args, **kwargs)
+            spacetrack.spephemeris.file(*args, **kwargs)
+
+        They resolve to the following calls respectively:
+
+        .. code-block:: python
+
+            spacetrack.generic_request('tle_publish', *args, **kwargs)
+            spacetrack.generic_request('tle_publish', *args, controller='basicspacedata', **kwargs)
+            spacetrack.generic_request('file', *args, **kwargs)
+            spacetrack.generic_request('file', *args, controller='fileshare', **kwargs)
+            spacetrack.generic_request('file', *args, controller='spephemeris', **kwargs)
 
         Parameters:
             class_: Space-Track request class name
