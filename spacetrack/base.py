@@ -218,21 +218,21 @@ class SpaceTrackClient(object):
 
         .. code-block:: python
 
-            spacetrack.tle_publish(*args, **kwargs)
-            spacetrack.basicspacedata.tle_publish(*args, **kwargs)
-            spacetrack.file(*args, **kwargs)
-            spacetrack.fileshare.file(*args, **kwargs)
-            spacetrack.spephemeris.file(*args, **kwargs)
+            st.tle_publish(*args, **kw)
+            st.basicspacedata.tle_publish(*args, **kw)
+            st.file(*args, **kw)
+            st.fileshare.file(*args, **kw)
+            st.spephemeris.file(*args, **kw)
 
         They resolve to the following calls respectively:
 
         .. code-block:: python
 
-            spacetrack.generic_request('tle_publish', *args, **kwargs)
-            spacetrack.generic_request('tle_publish', *args, controller='basicspacedata', **kwargs)
-            spacetrack.generic_request('file', *args, **kwargs)
-            spacetrack.generic_request('file', *args, controller='fileshare', **kwargs)
-            spacetrack.generic_request('file', *args, controller='spephemeris', **kwargs)
+            st.generic_request('tle_publish', *args, **kw)
+            st.generic_request('tle_publish', *args, controller='basicspacedata', **kw)
+            st.generic_request('file', *args, **kw)
+            st.generic_request('file', *args, controller='fileshare', **kw)
+            st.generic_request('file', *args, controller='spephemeris', **kw)
 
         Parameters:
             class\_: Space-Track request class name
