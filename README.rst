@@ -28,11 +28,11 @@ Example
 
    >>> # Operators, to save manual string formatting.
    >>> import spacetrack.operators as op
-   >>> range = op.inclusive_range(dt.datetime(2016, 6, 26),
-   ...                            dt.datetime(2016, 6, 27))
+   >>> drange = op.inclusive_range(dt.datetime(2016, 6, 26),
+   ...                             dt.datetime(2016, 6, 27))
 
    >>> # Streaming downloads line by line
-   >>> lines = st.tle(iter_lines=True, publish_epoch=range, orderby='TLE_LINE1', format='tle')
+   >>> lines = st.tle(iter_lines=True, publish_epoch=drange, orderby='TLE_LINE1', format='tle')
    >>> with open('tle.txt', 'w') as fp:
    ...     for line in lines:
    ...         fp.write(line)
