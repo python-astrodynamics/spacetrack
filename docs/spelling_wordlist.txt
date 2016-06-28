@@ -6,6 +6,7 @@ indices
 inline
 KiB
 login
+lookup
 mixin
 readthedocs
 username
