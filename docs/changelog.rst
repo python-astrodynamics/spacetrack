@@ -1,8 +1,13 @@
 Change Log
 ==========
 
-`Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.11.1...HEAD>`__
+`Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.12.0...HEAD>`__
 -----------------------------------------------------------------------------------------
+
+N/A
+
+`0.12.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.11.1...0.12.0>`__
+---------------------------------------------------------------------------------------
 
 Added
 ~~~~~
@@ -14,7 +19,8 @@ Added
    ``SpaceTrackClient.fileshare.file()``, which is equivalent to
    ``SpaceTrackClient.generic_request('file', controller='fileshare')``.
 -  ``dir(SpaceTrackClient(...))`` now includes the request controllers
-   and request classes so it's easier to see can be called. ### Fixed
+   and request classes so it's easier to see what can be called. ###
+   Fixed
 -  ``/modeldef`` API not queried if no predicates are passed. This
    allows ``spephemeris/download`` to be used, which doesn't have a
    model definition. ### Changed

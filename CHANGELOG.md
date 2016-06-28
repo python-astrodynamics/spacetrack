@@ -1,6 +1,9 @@
 # Change Log
 
 ## [Unreleased][unreleased]
+N/A
+
+## [0.12.0]
 ### Added
 - Request controller can be passed explicitly to methods that take a request
   class, because some request classes are present in more than one controller.
@@ -64,7 +67,8 @@
 
 First release.
 
-[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.11.1...HEAD
+[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.12.0...HEAD
+[0.12.0]: https://github.com/python-astrodynamics/spacetrack/compare/0.11.1...0.12.0
 [0.11.1]: https://github.com/python-astrodynamics/spacetrack/compare/0.11.0...0.11.1
 [0.11.0]: https://github.com/python-astrodynamics/spacetrack/compare/0.10.0...0.11.0
 [0.10.0]: https://github.com/python-astrodynamics/spacetrack/compare/0.9.0...0.10.0
