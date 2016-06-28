@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function
 
 import re
 import sys
-from collections import defaultdict
 
 from setuptools import setup, find_packages
 from setuptools.command.test import test as TestCommand  # noqa
@@ -28,52 +27,16 @@ requires = {
     'six',
 }
 
-
-def add_to_extras(extras_require, dest, source):
-    """Add dependencies from `source` extra to `dest` extra, handling
-    conditional dependencies.
-    """
-    for key, deps in list(extras_require.items()):
-        extra, _, condition = key.partition(':')
-        if extra == source:
-            if condition:
-                extras_require[dest + ':' + condition] |= deps
-            else:
-                extras_require[dest] |= deps
-
-extras_require = defaultdict(set)
+extras_require = dict()
 
 extras_require['test'] = {
     'pytest>=2.7.3',
     'responses',
 }
 
-extras_require['dev'] = {
-    'doc8',
-    'flake8',
-    'flake8-future-import',
-    'pep8-naming',
-    'plumbum',
-    'pyenchant',
-    'pytest-cov',
-    'shovel',
-    'sphinx',
-    'sphinx_rtd_theme',
-    'sphinxcontrib-spelling',
-    'tox',
-    'twine',
-    'watchdog',
-}
-
 extras_require['async:python_version>="3.5"'] = {'aiohttp'}
 extras_require['test:python_version<"3.3"'] = {'mock'}
 extras_require['test:python_version>="3.5"'] = {'pytest-asyncio'}
-
-add_to_extras(extras_require, 'dev', 'test')
-add_to_extras(extras_require, 'all', 'dev')
-add_to_extras(extras_require, 'all', 'async')
-
-extras_require = dict(extras_require)
 
 
 class PyTest(TestCommand):
