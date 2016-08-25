@@ -1,0 +1,30 @@
+cache:
+  paths:
+    - pip_cache
+
+before_script:
+  - export PIP_CACHE_DIR="pip_cache"
+  - pip install .[test]
+
+test:2.7:
+  image: python:2.7
+  script:
+  - py.test
+
+test:3.3:
+  image: python:3.3
+  script:
+  - py.test
+
+test:3.4:
+  image: python:3.4
+  script:
+  - py.test
+
+test:3.5:
+  image: python:3.5
+  before_script:
+    - export PIP_CACHE_DIR="pip_cache"
+    - pip install .[test,async]
+  script:
+  - py.test
