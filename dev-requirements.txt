@@ -7,7 +7,7 @@ plumbum==1.6.2
 pyenchant
 pytest-cov
 shovel
-sphinx
+sphinx==1.4.8
 sphinx_rtd_theme
 sphinxcontrib-spelling
 tox
