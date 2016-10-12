@@ -11,5 +11,5 @@ sphinx
 sphinx_rtd_theme
 sphinxcontrib-spelling
 tox
-twine
+twine==1.8.1
 watchdog
