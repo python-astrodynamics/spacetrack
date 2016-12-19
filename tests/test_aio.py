@@ -10,6 +10,7 @@ from aiohttp import ClientResponse
 from spacetrack import AuthenticationError
 from spacetrack.aio import (
     AsyncSpaceTrackClient, _AsyncChunkIterator, _AsyncLineIterator)
+from yarl import URL
 
 
 @pytest.mark.asyncio
@@ -18,7 +19,7 @@ async def test_authenticate():
 
     loop = asyncio.get_event_loop()
     response = ClientResponse(
-        'post', 'https://www.space-track.org/ajaxauth/login')
+        'post', URL('https://www.space-track.org/ajaxauth/login'))
     response._post_init(loop)
 
     response.status = 200
@@ -134,8 +135,8 @@ async def test_generic_request():
 
     loop = asyncio.get_event_loop()
     response = ClientResponse(
-        'get', 'https://www.space-track.org/basicspacedata/query/class'
-        '/tle_publish/format/tle')
+        'get', URL('https://www.space-track.org/basicspacedata/query/class'
+        '/tle_publish/format/tle'))
     response._post_init(loop)
 
     tle = (
@@ -168,8 +169,8 @@ async def test_generic_request():
     response.close()
 
     response = ClientResponse(
-        'get', 'https://www.space-track.org/basicspacedata/query/class'
-        '/tle_publish')
+        'get', URL('https://www.space-track.org/basicspacedata/query/class'
+        '/tle_publish'))
     response._post_init(loop)
 
     response.status = 200
