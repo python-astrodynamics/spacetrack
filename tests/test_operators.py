@@ -23,6 +23,7 @@ stringify_data = [
 def test_stringify_predicate_value(value, expected):
     assert _stringify_predicate_value(value) == expected
 
+
 operator_data = [
     (op.greater_than, 'test', '>test'),
     (op.less_than, 'test', '<test'),
