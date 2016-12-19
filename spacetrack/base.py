@@ -127,12 +127,19 @@ class SpaceTrackClient(object):
     request_controllers['fileshare'] = {
         'file',
         'download',
+        'upload',
     }
 
     request_controllers['spephemeris'] = {
         'download',
         'file',
         'file_history',
+    }
+
+    # List of (class, controller) tuples for
+    # requests which do not return a modeldef
+    offline_predicates = {
+        ('upload', 'fileshare'): {'folder_id', 'file'},
     }
 
     # These predicates are available for every request class.
@@ -297,26 +304,39 @@ class SpaceTrackClient(object):
         url = ('{0}{1}/query/class/{2}'
                .format(self.base_url, controller, class_))
 
-        if kwargs:
+        offline_check = (class_, controller) in self.offline_predicates
+        valid_fields = {p.name for p in self.rest_predicates}
+        if kwargs and not offline_check:
             # Validate keyword argument names by querying valid predicates from
             # Space-Track
             predicates = self.get_predicates(class_, controller)
             predicate_fields = {p.name for p in predicates}
-            valid_fields = predicate_fields | {p.name for p in self.rest_predicates}
+            valid_fields |= predicate_fields
+        elif kwargs and offline_check:
+            valid_fields |= self.offline_predicates[(class_, controller)]
 
-            for key, value in kwargs.items():
-                if key not in valid_fields:
-                    raise TypeError(
-                        "'{class_}' got an unexpected argument '{key}'"
-                        .format(class_=class_, key=key))
+        for key, value in kwargs.items():
+            if key not in valid_fields:
+                raise TypeError(
+                    "'{class_}' got an unexpected argument '{key}'"
+                    .format(class_=class_, key=key))
 
-                value = _stringify_predicate_value(value)
+            if class_ == 'upload' and key == 'file':
+                continue
 
-                url += '/{key}/{value}'.format(key=key, value=value)
+            value = _stringify_predicate_value(value)
+
+            url += '/{key}/{value}'.format(key=key, value=value)
 
         logger.debug(url)
 
-        resp = self._ratelimited_get(url, stream=iter_lines or iter_content)
+        if class_ == 'upload':
+            if 'file' not in kwargs:
+                raise TypeError("missing keyword argument: 'file'")
+
+            resp = self.session.post(url, files={'file': kwargs['file']})
+        else:
+            resp = self._ratelimited_get(url, stream=iter_lines or iter_content)
 
         _raise_for_status(resp)
 
