@@ -136,7 +136,7 @@ async def test_generic_request():
     loop = asyncio.get_event_loop()
     response = ClientResponse(
         'get', URL('https://www.space-track.org/basicspacedata/query/class'
-        '/tle_publish/format/tle'))
+                   '/tle_publish/format/tle'))
     response._post_init(loop)
 
     tle = (
@@ -170,7 +170,7 @@ async def test_generic_request():
 
     response = ClientResponse(
         'get', URL('https://www.space-track.org/basicspacedata/query/class'
-        '/tle_publish'))
+                   '/tle_publish'))
     response._post_init(loop)
 
     response.status = 200
