@@ -28,3 +28,11 @@ test:3.5:
     - pip install .[test,async]
   script:
   - py.test
+
+test:3.6:
+  image: python:3.6
+  before_script:
+    - export PIP_CACHE_DIR="pip_cache"
+    - pip install .[test,async]
+  script:
+  - py.test
