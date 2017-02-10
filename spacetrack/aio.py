@@ -32,6 +32,10 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
     .. _`Space-Track documentation`: https://www.space-track.org/documentation
         #api-requestClasses
+
+    .. attribute:: session
+
+        :class:`aiohttp.ClientSession` instance.
     """
     @staticmethod
     def _create_session():

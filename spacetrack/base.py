@@ -157,6 +157,8 @@ class SpaceTrackClient(object):
     }
 
     def __init__(self, identity, password):
+        #: :class:`requests.Session` instance. It can be mutated to configure
+        #: e.g. proxies.
         self.session = self._create_session()
         self.identity = identity
         self.password = password
