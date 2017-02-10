@@ -556,3 +556,39 @@ def test_repr():
     controller_proxy = st.basicspacedata
     reprstr = "_ControllerProxy<controller='basicspacedata'>"
     assert repr(controller_proxy) == reprstr
+
+
+def test_dir():
+    st = SpaceTrackClient('hello@example.com', 'mypassword')
+    assert dir(st) == [
+        '_authenticated',
+        '_controller_proxies',
+        '_predicates',
+        '_ratelimiter',
+        'announcement',
+        'basicspacedata',
+        'boxscore',
+        'callback',
+        'cdm',
+        'decay',
+        'download',
+        'expandedspacedata',
+        'file',
+        'file_history',
+        'fileshare',
+        'identity',
+        'launch_site',
+        'omm',
+        'organization',
+        'password',
+        'satcat',
+        'satcat_change',
+        'satcat_debut',
+        'session',
+        'spephemeris',
+        'tip',
+        'tle',
+        'tle_latest',
+        'tle_publish',
+        'upload',
+    ]
