@@ -299,6 +299,9 @@ class _AsyncContentIteratorMixin(AsyncIterator):
         # Fallback to UTF-8
         return params.get('charset', 'UTF-8')
 
+    async def __anext__(self):
+        raise NotImplementedError
+
 
 class _AsyncLineIterator(_AsyncContentIteratorMixin):
     """Asynchronous line iterator for Space-Track streamed responses."""
