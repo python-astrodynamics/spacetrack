@@ -592,3 +592,79 @@ def test_dir():
         'tle_publish',
         'upload',
     ]
+
+
+@pytest.mark.parametrize('predicate, input, output', [
+    (Predicate('a', 'float'), '0.5', 0.5),
+    (Predicate('a', 'int'), '5', 5),
+    (Predicate('a', 'datetime'), '2017-01-01 01:02:03',
+     dt.datetime(2017, 1, 1, 1, 2, 3)),
+    (Predicate('a', 'date'), '2017-01-01',
+     dt.date(2017, 1, 1)),
+    (Predicate('a', 'enum', values=('a', 'b')), 'a', 'a'),
+    (Predicate('a', 'int'), None, None),
+])
+def test_predicate_parse(predicate, input, output):
+    assert predicate.parse(input) == output
+
+
+@responses.activate
+def test_parse_types():
+    responses.add(
+        responses.POST, 'https://www.space-track.org/ajaxauth/login', json='""')
+
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/basicspacedata/modeldef/class/tle_publish',
+        json={
+            'controller': 'basicspacedata',
+            'data': [
+                {
+                    'Default': '0000-00-00 00:00:00',
+                    'Extra': '',
+                    'Field': 'PUBLISH_EPOCH',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'datetime'
+                },
+                {
+                    'Default': '',
+                    'Extra': '',
+                    'Field': 'TLE_LINE1',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'char(71)'
+                },
+                {
+                    'Default': '',
+                    'Extra': '',
+                    'Field': 'TLE_LINE2',
+                    'Key': '',
+                    'Null': 'NO',
+                    'Type': 'char(71)'
+                }
+            ]})
+
+    responses.add(
+        responses.GET,
+        'https://www.space-track.org/basicspacedata/query/class/tle_publish',
+        json=[{
+            # Test a type that is parsed.
+            'PUBLISH_EPOCH': '2017-01-02 03:04:05',
+            # Test a type that is passed through.
+            'TLE_LINE1': 'The quick brown fox jumps over the lazy dog.',
+            # Test a field there was no predicate for.
+            'OTHER_FIELD': 'Spam and eggs.'
+        }])
+
+    st = SpaceTrackClient('identity', 'password')
+
+    result, = st.tle_publish(parse_types=True)
+    assert result['PUBLISH_EPOCH'] == dt.datetime(2017, 1, 2, 3, 4, 5)
+    assert result['TLE_LINE1'] == 'The quick brown fox jumps over the lazy dog.'
+    assert result['OTHER_FIELD'] == 'Spam and eggs.'
+
+    with pytest.raises(ValueError) as exc_info:
+        st.tle_publish(format='tle', parse_types=True)
+
+    assert 'parse_types' in exc_info.value.args[0]

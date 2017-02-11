@@ -1,6 +1,7 @@
 # coding: utf-8
 from __future__ import absolute_import, division, print_function
 
+import datetime as dt
 import re
 import threading
 import time
@@ -53,6 +54,21 @@ class Predicate(ReprHelperMixin, object):
         r.keyword_from_attr('default')
         if self.values is not None:
             r.keyword_from_attr('values')
+
+    def parse(self, value):
+        if value is None:
+            return value
+
+        if self.type_ == 'float':
+            return float(value)
+        elif self.type_ == 'int':
+            return int(value)
+        elif self.type_ == 'datetime':
+            return dt.datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+        elif self.type_ == 'date':
+            return dt.datetime.strptime(value, '%Y-%m-%d').date()
+        else:
+            return value
 
 
 class SpaceTrackClient(object):
@@ -219,7 +235,7 @@ class SpaceTrackClient(object):
             self._authenticated = True
 
     def generic_request(self, class_, iter_lines=False, iter_content=False,
-                        controller=None, **kwargs):
+                        controller=None, parse_types=False, **kwargs):
         """Generic Space-Track query.
 
         The request class methods use this method internally; the public
@@ -279,6 +295,9 @@ class SpaceTrackClient(object):
         if iter_lines and iter_content:
             raise ValueError('iter_lines and iter_content cannot both be True')
 
+        if 'format' in kwargs and parse_types:
+            raise ValueError('parse_types can only be used if format is unset.')
+
         if controller is None:
             controller = self._find_controller(class_)
         else:
@@ -308,13 +327,15 @@ class SpaceTrackClient(object):
 
         offline_check = (class_, controller) in self.offline_predicates
         valid_fields = {p.name for p in self.rest_predicates}
-        if kwargs and not offline_check:
+        predicates = None
+
+        if not offline_check:
             # Validate keyword argument names by querying valid predicates from
             # Space-Track
             predicates = self.get_predicates(class_, controller)
             predicate_fields = {p.name for p in predicates}
             valid_fields |= predicate_fields
-        elif kwargs and offline_check:
+        else:
             valid_fields |= self.offline_predicates[(class_, controller)]
 
         for key, value in kwargs.items():
@@ -362,7 +383,23 @@ class SpaceTrackClient(object):
                     data = resp.content
                 return data
             else:
-                return resp.json()
+                data = resp.json()
+
+                if predicates is None or not parse_types:
+                    return data
+                else:
+                    return self._parse_types(data, predicates)
+
+    @staticmethod
+    def _parse_types(data, predicates):
+        predicate_map = {p.name: p for p in predicates}
+
+        for obj in data:
+            for key, value in obj.items():
+                if key.lower() in predicate_map:
+                    obj[key] = predicate_map[key.lower()].parse(value)
+
+        return data
 
     def _ratelimited_get(self, *args, **kwargs):
         """Perform get request, handling rate limiting."""

@@ -67,8 +67,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
             self._authenticated = True
 
-    async def generic_request(self, class_, iter_lines=False, controller=None,
-                              iter_content=False, **kwargs):
+    async def generic_request(self, class_, iter_lines=False, iter_content=False,
+                              controller=None, parse_types=False, **kwargs):
         """Generic Space-Track query coroutine.
 
         The request class methods use this method internally; the public
@@ -128,6 +128,9 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         if iter_lines and iter_content:
             raise ValueError('iter_lines and iter_content cannot both be True')
 
+        if 'format' in kwargs and parse_types:
+            raise ValueError('parse_types can only be used if format is unset.')
+
         if controller is None:
             controller = self._find_controller(class_)
         else:
@@ -155,20 +158,26 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         url = ('{0}{1}/query/class/{2}'
                .format(self.base_url, controller, class_))
 
-        if kwargs:
+        offline_check = (class_, controller) in self.offline_predicates
+        valid_fields = {p.name for p in self.rest_predicates}
+        predicates = None
+
+        if not offline_check:
             predicates = await self.get_predicates(class_)
             predicate_fields = {p.name for p in predicates}
             valid_fields = predicate_fields | {p.name for p in self.rest_predicates}
+        else:
+            valid_fields |= self.offline_predicates[(class_, controller)]
 
-            for key, value in kwargs.items():
-                if key not in valid_fields:
-                    raise TypeError(
-                        "'{class_}' got an unexpected argument '{key}'"
-                        .format(class_=class_, key=key))
+        for key, value in kwargs.items():
+            if key not in valid_fields:
+                raise TypeError(
+                    "'{class_}' got an unexpected argument '{key}'"
+                    .format(class_=class_, key=key))
 
-                value = _stringify_predicate_value(value)
+            value = _stringify_predicate_value(value)
 
-                url += '/{key}/{value}'.format(key=key, value=value)
+            url += '/{key}/{value}'.format(key=key, value=value)
 
         logger.debug(url)
 
@@ -193,7 +202,13 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                     data = await resp.read()
                 return data
             else:
-                return await resp.json()
+                data = await resp.json()
+
+                if predicates is None or not parse_types:
+                    return data
+                else:
+                    return self._parse_types(data, predicates)
+
 
     async def _ratelimited_get(self, *args, **kwargs):
         async with self._ratelimiter:
