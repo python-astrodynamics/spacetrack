@@ -372,7 +372,7 @@ def test_non_ratelimit_error():
 
 
 @responses.activate
-def test_predicate_parse():
+def test_predicate_parse_modeldef():
     st = SpaceTrackClient('identity', 'password')
 
     predicates_data = [
@@ -604,7 +604,7 @@ def test_dir():
     (Predicate('a', 'enum', values=('a', 'b')), 'a', 'a'),
     (Predicate('a', 'int'), None, None),
 ])
-def test_predicate_parse(predicate, input, output):
+def test_predicate_parse_type(predicate, input, output):
     assert predicate.parse(input) == output
 
 
