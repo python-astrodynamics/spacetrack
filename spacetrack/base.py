@@ -95,7 +95,7 @@ class SpaceTrackClient(object):
     """
     base_url = 'https://www.space-track.org/'
 
-    # "request class" methods will be looked by request controller in this
+    # "request class" methods will be looked up by request controller in this
     # order
     request_controllers = OrderedDict.fromkeys([
         'basicspacedata',
