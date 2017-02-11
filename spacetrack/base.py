@@ -394,7 +394,7 @@ class SpaceTrackClient(object):
 
     def __getattr__(self, attr):
         if attr in self.request_controllers:
-            controller_proxy = self._controller_proxies.get(attr, None)
+            controller_proxy = self._controller_proxies.get(attr)
             if controller_proxy is None:
                 controller_proxy = _ControllerProxy(self, attr)
                 self._controller_proxies[attr] = controller_proxy
