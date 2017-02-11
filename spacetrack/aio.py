@@ -209,7 +209,6 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                 else:
                     return self._parse_types(data, predicates)
 
-
     async def _ratelimited_get(self, *args, **kwargs):
         async with self._ratelimiter:
             resp = await self.session.get(*args, **kwargs)
