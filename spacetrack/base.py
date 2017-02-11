@@ -417,7 +417,7 @@ class SpaceTrackClient(object):
         # Let's catch this specific instance and retry once if it happens.
         if resp.status_code == 500:
             # Let's only retry if the error page tells us it's a rate limit
-            # violation.in
+            # violation.
             if 'violated your query rate limit' in resp.text:
                 # Mimic the RateLimiter callback behaviour.
                 until = time.time() + self._ratelimiter.period
