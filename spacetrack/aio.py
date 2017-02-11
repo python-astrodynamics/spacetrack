@@ -97,6 +97,9 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             iter_lines: Yield result line by line
             iter_content: Yield result in 100 KiB chunks.
             controller: Optionally specify request controller to use.
+            parse_types: Parse string values in response according to type given
+                in predicate information, e.g. ``'2017-01-01'`` ->
+                ``datetime.date(2017, 1, 1)``.
             **kwargs: These keywords must match the predicate fields on
                 Space-Track. You may check valid keywords with the following
                 snippet:
