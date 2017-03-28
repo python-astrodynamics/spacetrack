@@ -1,7 +1,8 @@
 # Change Log
 
 ## [Unreleased][unreleased]
-N/A
+### Changed
+- Require aiohttp >= 2.0 for the `async` extra.
 
 ## [0.12.0]
 ### Added

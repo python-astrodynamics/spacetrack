@@ -373,7 +373,10 @@ async def _raise_for_status(response):
     ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     """
-    if 400 <= response.status < 600:
+
+    try:
+        response.raise_for_status()
+    except aiohttp.ClientResponseError as exc:
         reason = response.reason
 
         spacetrack_error_msg = None
@@ -382,7 +385,7 @@ async def _raise_for_status(response):
             json = await response.json()
             if isinstance(json, Mapping):
                 spacetrack_error_msg = json['error']
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, aiohttp.ClientResponseError):
             pass
 
         if not spacetrack_error_msg:
@@ -391,11 +394,16 @@ async def _raise_for_status(response):
         if spacetrack_error_msg:
             reason += '\nSpace-Track response:\n' + spacetrack_error_msg
 
-        for err_name in aiohttp.web_exceptions.__all__:
-            err = getattr(aiohttp.web_exceptions, err_name)
-            if err.status_code == response.status:
-                payload = dict(
-                    headers=response.headers,
-                    reason=reason,
-                )
-                raise err(**payload)
+        payload = dict(
+            code=response.status,
+            message=reason,
+            headers=response.headers,
+        )
+
+        # history attribute is only aiohttp >= 2.1
+        try:
+            payload['history'] = exc.history
+        except AttributeError:
+            pass
+
+        raise aiohttp.ClientResponseError(**payload)
