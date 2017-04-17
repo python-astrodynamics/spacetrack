@@ -1,1 +1,4 @@
 schedule: "every week"
+search: False
+requirements:
+  - dev-requirements.txt
