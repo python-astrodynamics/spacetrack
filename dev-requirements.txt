@@ -6,7 +6,7 @@ flake8-future-import==0.4.3
 pep8-naming==0.4.1
 plumbum==1.6.3
 pyenchant==1.6.8
-pytest-cov==2.4.0
+pytest-cov==2.5.1
 shovel==0.3.0
 sphinx==1.5.5
 sphinx-rtd-theme==0.2.4
