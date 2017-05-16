@@ -4,7 +4,10 @@ Change Log
 `Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.12.0...HEAD>`__
 -----------------------------------------------------------------------------------------
 
-N/A
+Changed
+~~~~~~~
+
+-  Require aiohttp >= 2.0 for the ``async`` extra.
 
 `0.12.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.11.1...0.12.0>`__
 ---------------------------------------------------------------------------------------

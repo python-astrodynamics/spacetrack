@@ -1,11 +1,6 @@
--e .[async,test]
+-e .[async,test,docstest,pep8test]
 coverage==4.4.1
-flake8==3.3.0
-flake8-coding==1.3.0
-flake8-future-import==0.4.3
-pep8-naming==0.4.1
 plumbum==1.6.3
-pytest-cov==2.5.1
 shovel==0.3.0
 tox==2.7.0
 twine==1.8.1

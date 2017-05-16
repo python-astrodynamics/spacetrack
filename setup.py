@@ -30,13 +30,28 @@ requires = {
 extras_require = dict()
 
 extras_require['test'] = {
-    'pytest>=2.7.3',
+    'pytest>=3.0',
     'responses',
 }
 
 extras_require['async:python_version>="3.5"'] = {'aiohttp>=2.0'}
 extras_require['test:python_version<"3.3"'] = {'mock'}
 extras_require['test:python_version>="3.5"'] = {'pytest-asyncio'}
+
+extras_require['docstest'] = {
+    'doc8',
+    'pyenchant',
+    'sphinx',
+    'sphinx_rtd_theme',
+    'sphinxcontrib-spelling',
+}
+
+extras_require['pep8test'] = {
+    'flake8',
+    'flake8-coding',
+    'flake8-future-import',
+    'pep8-naming',
+}
 
 
 class PyTest(TestCommand):
