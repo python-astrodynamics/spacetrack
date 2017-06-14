@@ -100,6 +100,23 @@ The same example is shown below synchronously and asynchronously.
     loop = asyncio.get_event_loop()
     loop.run_until_complete(download_latest_tles())
 
+
+File Uploads
+============
+
+To use the `upload` request class, pass a `file` keyword argument with the
+opened file:
+
+.. code-block:: python
+
+    from spacetrack import SpaceTrackClient
+
+    st = SpaceTrackClient(identity='user@example.com', password='password')
+
+    with open('somefile.txt', 'rb') as fp:
+        st.upload(file=fp)
+
+
 Rate Limiter
 ============
 
