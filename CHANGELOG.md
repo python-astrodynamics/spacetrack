@@ -4,6 +4,10 @@
 ### Added
 - `parse_types` flag to optionally parse types as described by the `modeldef`
   API.
+- Compatibility with `maneuver` and `maneuver_history` request classes for
+  `expandedspacedata` request controller.
+- Compatibility with `upload` and ``delete` request classes for `fileshare`
+  request controller.
 ### Fixed
 - Predicates with the enum type are parsed correctly. Previously, single-valued
   enums had `None` as a second value, and enums with more than two values only

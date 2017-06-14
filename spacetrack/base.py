@@ -138,12 +138,15 @@ class SpaceTrackClient(object):
     request_controllers['expandedspacedata'] = {
         'cdm',
         'organization',
+        'maneuver',
+        'maneuver_history',
     }
 
     request_controllers['fileshare'] = {
         'file',
         'download',
         'upload',
+        'delete',
     }
 
     request_controllers['spephemeris'] = {
