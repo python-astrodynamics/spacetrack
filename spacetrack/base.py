@@ -578,7 +578,8 @@ class SpaceTrackClient(object):
                     raise ValueError(
                         "Couldn't parse enum type '{}'".format(full_type))
 
-                predicate.values = enum_match.groups()
+                # match.groups() doesn't work for repeating groups, use findall
+                predicate.values = tuple(re.findall(r"'(\w+)'", full_type))
 
             predicate_objects.append(predicate)
 

@@ -4,6 +4,11 @@
 ### Added
 - `parse_types` flag to optionally parse types as described by the `modeldef`
   API.
+### Fixed
+- Predicates with the enum type are parsed correctly. Previously, single-valued
+  enums had `None` as a second value, and enums with more than two values only
+  had the first and last value due to the regex match not capturing repeated
+  groups.
 ### Changed
 - Require aiohttp >= 2.0 for the `async` extra.
 
