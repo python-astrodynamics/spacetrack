@@ -1,6 +1,9 @@
 # Change Log
 
 ## [Unreleased][unreleased]
+### Added
+- `parse_types` flag to optionally parse types as described by the `modeldef`
+  API.
 ### Changed
 - Require aiohttp >= 2.0 for the `async` extra.
 
