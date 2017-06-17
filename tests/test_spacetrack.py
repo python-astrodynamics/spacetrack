@@ -431,6 +431,34 @@ def test_predicate_parse_modeldef():
     predicate = st._parse_predicates_data(predicates_data)[0]
     assert predicate.values == ('a', 'b')
 
+    predicates_data = [
+        {
+            'Default': '',
+            'Extra': '',
+            'Field': 'TEST',
+            'Key': '',
+            'Null': 'NO',
+            'Type': "enum('a')"
+        }
+    ]
+
+    predicate = st._parse_predicates_data(predicates_data)[0]
+    assert predicate.values == ('a',)
+
+    predicates_data = [
+        {
+            'Default': '',
+            'Extra': '',
+            'Field': 'TEST',
+            'Key': '',
+            'Null': 'NO',
+            'Type': "enum('a','b','c')"
+        }
+    ]
+
+    predicate = st._parse_predicates_data(predicates_data)[0]
+    assert predicate.values == ('a','b','c')
+
 
 def test_bare_spacetrack_methods():
     """Verify that e.g. st.tle_publish calls st.generic_request('tle_publish')"""
