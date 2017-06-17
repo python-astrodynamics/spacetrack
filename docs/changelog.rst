@@ -4,9 +4,28 @@ Change Log
 `Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.12.0...HEAD>`__
 -----------------------------------------------------------------------------------------
 
-Changed
-~~~~~~~
+N/A
 
+[0.13.0]
+--------
+
+Added
+~~~~~
+
+-  ``parse_types`` flag to optionally parse types as described by the
+   ``modeldef`` API.
+-  Compatibility with ``maneuver`` and ``maneuver_history`` request
+   classes for ``expandedspacedata`` request controller.
+-  Compatibility with ``upload`` and ``delete`` request classes for
+   ``fileshare`` request controller. ### Fixed
+-  Predicates with the enum type are parsed correctly. Previously,
+   single-valued enums had ``None`` as a second value, and enums with
+   more than two values only had the first and last value due to the
+   regex match not capturing repeated groups. The values aren't used by
+   ``spacetrack``, so the bug went unnoticed.
+-  Exception on Python 3.5+ in threads without an ``asyncio`` event loop
+   (even using the normal ``SpaceTrackClient``). Fixed by requiring
+   ``ratelimiter`` >= 1.2.0 ### Changed
 -  Require aiohttp >= 2.0 for the ``async`` extra.
 
 `0.12.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.11.1...0.12.0>`__
