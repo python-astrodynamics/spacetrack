@@ -11,3 +11,6 @@ lookup
 mixin
 readthedocs
 username
+enums
+regex
+aren
