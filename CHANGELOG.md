@@ -13,6 +13,8 @@
   enums had `None` as a second value, and enums with more than two values only
   had the first and last value due to the regex match not capturing repeated
   groups. The values aren't used by `spacetrack`, so the bug went unnoticed.
+- Exception on Python 3.5+ in threads without an `asyncio` event loop (even
+  using the normal `SpaceTrackClient`). Fixed by requiring `ratelimiter` >= 1.2.0
 ### Changed
 - Require aiohttp >= 2.0 for the `async` extra.
 
