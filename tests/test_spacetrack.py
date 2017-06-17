@@ -457,7 +457,7 @@ def test_predicate_parse_modeldef():
     ]
 
     predicate = st._parse_predicates_data(predicates_data)[0]
-    assert predicate.values == ('a','b','c')
+    assert predicate.values == ('a', 'b', 'c')
 
 
 def test_bare_spacetrack_methods():
