@@ -20,7 +20,12 @@ async def test_authenticate():
     loop = asyncio.get_event_loop()
     response = ClientResponse(
         'post', URL('https://www.space-track.org/ajaxauth/login'))
-    response._post_init(loop)
+
+    # aiohttp 2.2 uses session
+    try:
+        response._post_init(loop)
+    except TypeError:
+        response._post_init(loop, st.session)
 
     response.status = 200
     response.json = Mock()
@@ -137,7 +142,12 @@ async def test_generic_request():
     response = ClientResponse(
         'get', URL('https://www.space-track.org/basicspacedata/query/class'
                    '/tle_publish/format/tle'))
-    response._post_init(loop)
+
+    # aiohttp 2.2 uses session
+    try:
+        response._post_init(loop)
+    except TypeError:
+        response._post_init(loop, st.session)
 
     tle = (
         '1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927\r\n'
@@ -171,7 +181,12 @@ async def test_generic_request():
     response = ClientResponse(
         'get', URL('https://www.space-track.org/basicspacedata/query/class'
                    '/tle_publish'))
-    response._post_init(loop)
+
+    # aiohttp 2.2 uses session
+    try:
+        response._post_init(loop)
+    except TypeError:
+        response._post_init(loop, st.session)
 
     response.status = 200
     response.json = Mock()
