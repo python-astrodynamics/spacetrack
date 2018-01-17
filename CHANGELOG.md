@@ -3,6 +3,11 @@
 ## [Unreleased][unreleased]
 N/A
 
+## [0.13.1][]
+### Fixed
+- `spacetrack` can be installed with setuptools v38.0+, which requires
+  `install_requires` in `setup.py` to be ordered.
+
 ## [0.13.0]
 ### Added
 - `parse_types` flag to optionally parse types as described by the `modeldef`
@@ -88,6 +93,8 @@ N/A
 First release.
 
 [unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.12.0...HEAD
+[0.13.1]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.0...0.13.1
+[0.13.0]: https://github.com/python-astrodynamics/spacetrack/compare/0.12.0...0.13.0
 [0.12.0]: https://github.com/python-astrodynamics/spacetrack/compare/0.11.1...0.12.0
 [0.11.1]: https://github.com/python-astrodynamics/spacetrack/compare/0.11.0...0.11.1
 [0.11.0]: https://github.com/python-astrodynamics/spacetrack/compare/0.10.0...0.11.0
