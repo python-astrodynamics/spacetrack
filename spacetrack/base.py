@@ -357,7 +357,7 @@ class SpaceTrackClient(object):
 
             url += '/{key}/{value}'.format(key=key, value=value)
 
-        logger.debug(url)
+        logger.debug(requests.utils.requote_uri(url))
 
         if class_ == 'upload':
             if 'file' not in kwargs:
@@ -493,7 +493,7 @@ class SpaceTrackClient(object):
         url = ('{0}{1}/modeldef/class/{2}'
                .format(self.base_url, controller, class_))
 
-        logger.debug(url)
+        logger.debug(requests.utils.requote_uri(url))
 
         resp = self._ratelimited_get(url)
 
