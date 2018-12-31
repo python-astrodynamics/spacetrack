@@ -3,13 +3,27 @@ Change Log
 
 .. _unreleasedunreleased:
 
-`Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.12.0...HEAD>`__
+`Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.13.2...HEAD>`__
 -----------------------------------------------------------------------------------------
 
 N/A
 
+`0.13.2 <https://github.com/python-astrodynamics/spacetrack/compare/0.13.1...0.13.2>`__
+---------------------------------------------------------------------------------------
+
+Fixed
+~~~~~
+
+-  The ``async`` extra installs aiohttp 2 because ``spacetrack`` is not
+   yet aiohttp 3 compatible.
+-  Deprecation warnings about invalid escape sequences.
+
+.. _section-1:
+
 `0.13.1 <https://github.com/python-astrodynamics/spacetrack/compare/0.13.0...0.13.1>`__
 ---------------------------------------------------------------------------------------
+
+.. _fixed-1:
 
 Fixed
 ~~~~~
@@ -17,7 +31,7 @@ Fixed
 -  ``spacetrack`` can be installed with setuptools v38.0+, which
    requires ``install_requires`` in ``setup.py`` to be ordered.
 
-.. _section-1:
+.. _section-2:
 
 `0.13.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.12.0...0.13.0>`__
 ---------------------------------------------------------------------------------------
@@ -41,7 +55,7 @@ Added
    ``ratelimiter`` >= 1.2.0 ### Changed
 -  Require aiohttp >= 2.0 for the ``async`` extra.
 
-.. _section-2:
+.. _section-3:
 
 `0.12.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.11.1...0.12.0>`__
 ---------------------------------------------------------------------------------------
@@ -54,13 +68,13 @@ Added
 -  Request controller can be passed explicitly to methods that take a
    request class, because some request classes are present in more than
    one controller.
--  Request controller proxy attribute, e.g.
-   ``SpaceTrackClient.fileshare.file()``, which is equivalent to
+-  Request controller proxy attribute,
+   e.g. \ ``SpaceTrackClient.fileshare.file()``, which is equivalent to
    ``SpaceTrackClient.generic_request('file', controller='fileshare')``.
 -  ``dir(SpaceTrackClient(...))`` now includes the request controllers
    and request classes so it’s easier to see what can be called.
 
-.. _fixed-1:
+.. _fixed-2:
 
 Fixed
 ~~~~~
@@ -82,12 +96,12 @@ Changed
 -  ``AsyncSpaceTrackClient`` uses requests’ CA file for same experience
    with both clients.
 
-.. _section-3:
+.. _section-4:
 
 `0.11.1 <https://github.com/python-astrodynamics/spacetrack/compare/0.11.0...0.11.1>`__
 ---------------------------------------------------------------------------------------
 
-.. _fixed-2:
+.. _fixed-3:
 
 Fixed
 ~~~~~
@@ -102,7 +116,7 @@ Changed
 
 -  Documentation included in source distribution.
 
-.. _section-4:
+.. _section-5:
 
 `0.11.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.10.0...0.11.0>`__
 ---------------------------------------------------------------------------------------
@@ -114,7 +128,7 @@ Added
 
 -  Some unit tests added for ``AsyncSpaceTrackClient``.
 
-.. _fixed-3:
+.. _fixed-4:
 
 Fixed
 ~~~~~
@@ -131,12 +145,12 @@ Changed
    optional dependency ``aiohttp`` was not installed. It must be
    imported from ``spacetrack.aio``.
 
-.. _section-5:
+.. _section-6:
 
 `0.10.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.9.0...0.10.0>`__ - 2016-02-04
 ---------------------------------------------------------------------------------------------------
 
-.. _fixed-4:
+.. _fixed-5:
 
 Fixed
 ~~~~~
@@ -158,7 +172,7 @@ Changed
    used inline instead.
 -  ``Predicate`` class now has a ``default`` attribute.
 
-.. _section-6:
+.. _section-7:
 
 `0.9.0 <https://github.com/python-astrodynamics/spacetrack/compare/e5fc088a96ec1557d44931e00500cdcef8349fad...0.9.0>`__ - 2016-01-28
 ------------------------------------------------------------------------------------------------------------------------------------
