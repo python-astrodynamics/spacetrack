@@ -18,8 +18,8 @@ from .operators import _stringify_predicate_value
 
 logger = Logger('spacetrack')
 
-type_re = re.compile('(\w+)')
-enum_re = re.compile("""
+type_re = re.compile(r'(\w+)')
+enum_re = re.compile(r"""
     enum\(
         '(\w+)'      # First value
         (?:,         # Subsequent values optional
@@ -239,7 +239,7 @@ class SpaceTrackClient(object):
 
     def generic_request(self, class_, iter_lines=False, iter_content=False,
                         controller=None, parse_types=False, **kwargs):
-        """Generic Space-Track query.
+        r"""Generic Space-Track query.
 
         The request class methods use this method internally; the public
         API is as follows:
