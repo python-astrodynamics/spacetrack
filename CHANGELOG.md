@@ -3,6 +3,11 @@
 ## [Unreleased][unreleased]
 N/A
 
+## [0.13.2][]
+### Fixed
+- The `async` extra installs aiohttp 2 because `spacetrack` is not yet aiohttp 3
+  compatible.
+
 ## [0.13.1][]
 ### Fixed
 - `spacetrack` can be installed with setuptools v38.0+, which requires
@@ -92,7 +97,8 @@ N/A
 
 First release.
 
-[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.1...HEAD
+[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.2...HEAD
+[0.13.2]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.1...0.13.2
 [0.13.1]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.0...0.13.1
 [0.13.0]: https://github.com/python-astrodynamics/spacetrack/compare/0.12.0...0.13.0
 [0.12.0]: https://github.com/python-astrodynamics/spacetrack/compare/0.11.1...0.12.0
