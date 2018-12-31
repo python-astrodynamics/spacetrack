@@ -7,6 +7,7 @@ N/A
 ### Fixed
 - The `async` extra installs aiohttp 2 because `spacetrack` is not yet aiohttp 3
   compatible.
+- Deprecation warnings about invalid escape sequences.
 
 ## [0.13.1][]
 ### Fixed
