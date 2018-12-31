@@ -34,7 +34,7 @@ extras_require['test'] = [
     'responses',
 ]
 
-extras_require['async:python_version>="3.5"'] = ['aiohttp>=2.0']
+extras_require['async:python_version>="3.5"'] = ['aiohttp~=2.0']
 extras_require['test:python_version<"3.3"'] = ['mock']
 extras_require['test:python_version>="3.5"'] = ['pytest-asyncio']
 
