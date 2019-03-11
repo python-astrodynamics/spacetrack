@@ -3,6 +3,11 @@
 ## [Unreleased][unreleased]
 N/A
 
+## [0.13.3][]
+### Fixed
+- The deprecation warning about importing `Sequence` or `Mapping` from
+  `collections` instead of `collections.abc`.
+
 ## [0.13.2][]
 ### Fixed
 - The `async` extra installs aiohttp 2 because `spacetrack` is not yet aiohttp 3
@@ -98,7 +103,8 @@ N/A
 
 First release.
 
-[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.2...HEAD
+[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.3...HEAD
+[0.13.3]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.2...0.13.3
 [0.13.2]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.1...0.13.2
 [0.13.1]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.0...0.13.1
 [0.13.0]: https://github.com/python-astrodynamics/spacetrack/compare/0.12.0...0.13.0
