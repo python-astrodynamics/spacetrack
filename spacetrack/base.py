@@ -6,10 +6,6 @@ import re
 import threading
 import time
 import weakref
-try:
-    from collections.abc import Mapping
-except ImportError:
-    from collections import Mapping
 from collections import OrderedDict
 from functools import partial
 
@@ -19,6 +15,11 @@ from ratelimiter import RateLimiter
 from represent import ReprHelper, ReprHelperMixin
 
 from .operators import _stringify_predicate_value
+
+try:
+    from collections.abc import Mapping
+except ImportError:
+    from collections import Mapping
 
 logger = Logger('spacetrack')
 

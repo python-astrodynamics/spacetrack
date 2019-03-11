@@ -2,12 +2,13 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime
+
+import six
+
 try:
     from collections.abc import Sequence
 except ImportError:
     from collections import Sequence
-
-import six
 
 
 def greater_than(value):
