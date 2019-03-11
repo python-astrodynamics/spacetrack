@@ -6,7 +6,11 @@ import re
 import threading
 import time
 import weakref
-from collections import Mapping, OrderedDict
+try:
+    from collections.abc import Mapping
+except ImportError:
+    from collections import Mapping
+from collections import OrderedDict
 from functools import partial
 
 import requests
