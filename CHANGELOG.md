@@ -3,6 +3,11 @@
 ## [Unreleased][unreleased]
 N/A
 
+## [0.13.4][]
+### Added
+- `SpaceTrackClient` gained a `base_url` parameter to allow the use of an
+  alternate Space-Track server.
+
 ## [0.13.3][]
 ### Fixed
 - The deprecation warning about importing `Sequence` or `Mapping` from
@@ -103,7 +108,8 @@ N/A
 
 First release.
 
-[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.3...HEAD
+[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.4...HEAD
+[0.13.4]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.3...0.13.4
 [0.13.3]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.2...0.13.3
 [0.13.2]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.1...0.13.2
 [0.13.1]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.0...0.13.1
