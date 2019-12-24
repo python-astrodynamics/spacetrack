@@ -27,6 +27,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
     Parameters:
         identity: Space-Track username.
         password: Space-Track password.
+        base_url: May be overridden to use e.g. https://testing.space-track.org/
 
     For more information, refer to the `Space-Track documentation`_.
 

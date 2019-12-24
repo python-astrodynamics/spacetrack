@@ -527,6 +527,16 @@ def test_authenticate():
 
 
 @responses.activate
+def test_base_url():
+    responses.add(
+        responses.POST, 'https://example.com/ajaxauth/login', json='""')
+    st = SpaceTrackClient('identity', 'password', base_url='https://example.com')
+    st.authenticate()
+
+    assert len(responses.calls) == 1
+
+
+@responses.activate
 def test_raise_for_status():
     responses.add(responses.GET, 'http://example.com/1',
                   json={'error': 'problem'}, status=400)
@@ -594,6 +604,7 @@ def test_dir():
         '_predicates',
         '_ratelimiter',
         'announcement',
+        'base_url',
         'basicspacedata',
         'boxscore',
         'callback',

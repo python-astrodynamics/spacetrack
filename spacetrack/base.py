@@ -33,6 +33,8 @@ enum_re = re.compile(r"""
     \)
 """, re.VERBOSE)
 
+BASE_URL = 'https://www.space-track.org/'
+
 
 class AuthenticationError(Exception):
     """Space-Track authentication error."""
@@ -82,6 +84,7 @@ class SpaceTrackClient(object):
     Parameters:
         identity: Space-Track username.
         password: Space-Track password.
+        base_url: May be overridden to use e.g. https://testing.space-track.org/
 
     For more information, refer to the `Space-Track documentation`_.
 
@@ -114,7 +117,6 @@ class SpaceTrackClient(object):
 
             .. _`GitHub`: https://github.com/python-astrodynamics/spacetrack
     """
-    base_url = 'https://www.space-track.org/'
 
     # "request class" methods will be looked up by request controller in this
     # order
@@ -180,12 +182,16 @@ class SpaceTrackClient(object):
         Predicate('favorites', 'str'),
     }
 
-    def __init__(self, identity, password):
+    def __init__(self, identity, password, base_url=BASE_URL):
         #: :class:`requests.Session` instance. It can be mutated to configure
         #: e.g. proxies.
         self.session = self._create_session()
         self.identity = identity
         self.password = password
+
+        if not base_url.endswith('/'):
+            base_url += '/'
+        self.base_url = base_url
 
         # If set, this will be called when we sleep for the rate limit.
         self.callback = None
