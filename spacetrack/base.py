@@ -5,6 +5,7 @@ import datetime as dt
 import re
 import threading
 import time
+import warnings
 import weakref
 from collections import OrderedDict
 from functools import partial
@@ -38,6 +39,10 @@ BASE_URL = 'https://www.space-track.org/'
 
 class AuthenticationError(Exception):
     """Space-Track authentication error."""
+
+
+class UnknownPredicateTypeWarning(RuntimeWarning):
+    """Used to warn when a predicate type is unknown."""
 
 
 class Predicate(ReprHelperMixin, object):
@@ -578,12 +583,14 @@ class SpaceTrackClient(object):
             }
 
             if type_name not in types:
-                raise ValueError("Unknown predicate type '{}'."
-                                 .format(type_name))
+                warnings.warn(
+                    'Unknown predicate type {!r}'.format(type_name),
+                    UnknownPredicateTypeWarning,
+                )
 
             predicate = Predicate(
                 name=field_name,
-                type_=types[type_name],
+                type_=types.get(type_name, type_name),
                 nullable=nullable,
                 default=default)
 

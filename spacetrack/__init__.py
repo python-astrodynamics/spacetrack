@@ -1,7 +1,8 @@
 # coding: utf-8
 from __future__ import absolute_import, division, print_function
 
-from .base import AuthenticationError, SpaceTrackClient  # noqa
+from .base import (  # noqa
+    AuthenticationError, SpaceTrackClient, UnknownPredicateTypeWarning)
 from .operators import (  # noqa
     greater_than, inclusive_range, less_than, like, not_equal, startswith)
 

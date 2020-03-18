@@ -8,7 +8,8 @@ import pytest
 import requests
 import responses
 from requests import HTTPError, Response
-from spacetrack import AuthenticationError, SpaceTrackClient
+from spacetrack import (
+    AuthenticationError, SpaceTrackClient, UnknownPredicateTypeWarning)
 from spacetrack.base import (
     Predicate, _iter_content_generator, _iter_lines_generator,
     _raise_for_status)
@@ -400,7 +401,8 @@ def test_predicate_parse_modeldef():
         }
     ]
 
-    with pytest.raises(ValueError):
+    msg = "Unknown predicate type 'unknowntype'"
+    with pytest.warns(UnknownPredicateTypeWarning, match=msg):
         st._parse_predicates_data(predicates_data)
 
     predicates_data = [
