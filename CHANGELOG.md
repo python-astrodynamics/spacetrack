@@ -3,6 +3,11 @@
 ## [Unreleased][unreleased]
 N/A
 
+## [0.13.5][]
+### Fixed
+- The 'text' predicate type is now understood.
+- Unknown predicate types issue a warning instead of raising an exception.
+
 ## [0.13.4][]
 ### Added
 - `SpaceTrackClient` gained a `base_url` parameter to allow the use of an
@@ -108,7 +113,8 @@ N/A
 
 First release.
 
-[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.4...HEAD
+[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.5...HEAD
+[0.13.5]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.4...0.13.5
 [0.13.4]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.3...0.13.4
 [0.13.3]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.2...0.13.3
 [0.13.2]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.1...0.13.2
