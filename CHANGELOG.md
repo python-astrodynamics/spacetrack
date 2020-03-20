@@ -3,6 +3,11 @@
 ## [Unreleased][unreleased]
 N/A
 
+## [0.13.6][]
+### Fixed
+- Regression in 0.13 that prevented `spephemeris/download` from working by
+  trying to load a model definition which it doesn't have.
+
 ## [0.13.5][]
 ### Fixed
 - The 'text' predicate type is now understood.
@@ -113,7 +118,8 @@ N/A
 
 First release.
 
-[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.5...HEAD
+[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.6...HEAD
+[0.13.6]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.5...0.13.6
 [0.13.5]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.4...0.13.5
 [0.13.4]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.3...0.13.4
 [0.13.3]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.2...0.13.3
