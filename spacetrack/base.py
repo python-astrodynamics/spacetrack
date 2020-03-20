@@ -171,6 +171,7 @@ class SpaceTrackClient(object):
     # requests which do not return a modeldef
     offline_predicates = {
         ('upload', 'fileshare'): {'folder_id', 'file'},
+        ('download', 'spephemeris'): set(),
     }
 
     # These predicates are available for every request class.
