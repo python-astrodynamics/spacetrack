@@ -1,11 +1,6 @@
-# coding: utf-8
-from __future__ import absolute_import, division, print_function
-
 import re
-import sys
 
 from setuptools import setup, find_packages
-from setuptools.command.test import test as TestCommand  # noqa
 
 
 INIT_FILE = 'spacetrack/__init__.py'
@@ -31,12 +26,11 @@ extras_require = dict()
 
 extras_require['test'] = [
     'pytest>=3.0',
+    'pytest-asyncio',
     'responses',
 ]
 
-extras_require['async:python_version>="3.5"'] = ['aiohttp~=2.0']
-extras_require['test:python_version<"3.3"'] = ['mock']
-extras_require['test:python_version>="3.5"'] = ['pytest-asyncio']
+extras_require['async'] = ['aiohttp~=2.0']
 
 extras_require['docstest'] = [
     'doc8',
@@ -54,25 +48,6 @@ extras_require['pep8test'] = [
 ]
 
 
-class PyTest(TestCommand):
-    user_options = [('pytest-args=', 'a', "Arguments to pass to py.test")]
-
-    def initialize_options(self):
-        TestCommand.initialize_options(self)
-        self.pytest_args = []
-
-    def finalize_options(self):
-        TestCommand.finalize_options(self)
-        self.test_args = []
-        self.test_suite = True
-
-    def run_tests(self):
-        # import here, cause outside the eggs aren't loaded
-        import pytest
-        errno = pytest.main(self.pytest_args)
-        sys.exit(errno)
-
-
 setup(
     name='spacetrack',
     version=VERSION,
@@ -82,15 +57,15 @@ setup(
     author_email=EMAIL,
     url='https://github.com/python-astrodynamics/spacetrack',
     packages=find_packages(exclude=['tests']),
-    cmdclass={'test': PyTest},
     classifiers=[
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
     license=LICENSE,
     install_requires=requires,
-    python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*',
-    extras_require=extras_require,
-    tests_require=extras_require['test'])
+    python_requires='>=3.6',
+    extras_require=extras_require)
