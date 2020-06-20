@@ -187,9 +187,9 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         await _raise_for_status(resp)
 
         if iter_lines:
-            return _AsyncLineIterator(resp, decode_unicode=decode)
+            return _iter_lines_generator(resp, decode_unicode=decode)
         elif iter_content:
-            return _AsyncChunkIterator(resp, decode_unicode=decode)
+            return _iter_content_generator(resp, decode_unicode=decode)
         else:
             # If format is specified, return that format unparsed. Otherwise,
             # parse the default JSON response.
@@ -292,71 +292,69 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         return self._predicates[class_]
 
     def __enter__(self):
-        return self
+        raise TypeError("Use async with instead")
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        pass
 
-    def close(self):
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
+    async def close(self):
         """Close aiohttp session."""
-        self.session.close()
+        await self.session.close()
 
 
-class _AsyncContentIteratorMixin(AsyncIterator):
-    """Asynchronous iterator mixin for Space-Track aiohttp response."""
-    def __init__(self, response, decode_unicode):
-        self.response = response
-        self.decode_unicode = decode_unicode
+def get_encoding(response):
+    ctype = response.headers.get('content-type', '').lower()
+    mimetype = parse_mimetype(ctype)
 
-    def get_encoding(self):
-        ctype = self.response.headers.get('content-type', '').lower()
-        mtype, stype, _, params = parse_mimetype(ctype)
+    # Fallback to UTF-8
+    return mimetype.parameters.get('charset', 'UTF-8')
+
+
+async def _iter_content_generator(response, decode_unicode):
+    encoding = None
+
+    if decode_unicode:
+        ctype = response.headers.get('content-type', '').lower()
+        mimetype = parse_mimetype(ctype)
 
         # Fallback to UTF-8
-        return params.get('charset', 'UTF-8')
+        encoding = mimetype.parameters.get('charset', 'UTF-8')
 
-    async def __anext__(self):
-        raise NotImplementedError
-
-
-class _AsyncLineIterator(_AsyncContentIteratorMixin):
-    """Asynchronous line iterator for Space-Track streamed responses."""
-    async def __anext__(self):
-        try:
-            data = await self.response.content.__anext__()
-        except StopAsyncIteration:
-            self.response.close()
-            raise
-
-        if self.decode_unicode:
-            data = data.decode(self.get_encoding())
-            # Strip newlines
-            data = data.rstrip('\r\n')
-        return data
-
-
-class _AsyncChunkIterator(_AsyncContentIteratorMixin):
-    """Asynchronous chunk iterator for Space-Track streamed responses."""
-    def __init__(self, *args, chunk_size=100 * 1024, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.chunk_size = chunk_size
-
-    async def __anext__(self):
-        content = self.response.content
-        try:
-            data = await content.iter_chunked(self.chunk_size).__anext__()
-        except StopAsyncIteration:
-            self.response.close()
-            raise
-
-        if self.decode_unicode:
-            data = data.decode(self.get_encoding())
+    async for chunk in response.content.iter_chunked(100 * 1024):
+        if decode_unicode:
+            chunk = chunk.decode(encoding)
             # Replace CRLF newlines with LF, Python will handle
             # platform specific newlines if written to file.
-            data = data.replace('\r\n', '\n')
+            chunk = chunk.replace('\r\n', '\n')
             # Chunk could be ['...\r', '\n...'], strip trailing \r
-            data = data.rstrip('\r')
-        return data
+            chunk = chunk.rstrip('\r')
+        yield chunk
+
+
+async def _iter_lines_generator(response, decode_unicode):
+    pending = None
+    async for chunk in _iter_content_generator(response, decode_unicode):
+        if pending is not None:
+            chunk = pending + chunk
+
+        lines = chunk.splitlines()
+
+        if lines and lines[-1] and chunk and lines[-1][-1] == chunk[-1]:
+            pending = lines.pop()
+        else:
+            pending = None
+
+        for line in lines:
+            yield line
+
+    if pending is not None:
+        yield pending
 
 
 async def _raise_for_status(response):
@@ -366,30 +364,11 @@ async def _raise_for_status(response):
       response (:py:class:`aiohttp.ClientResponse`): The API response.
 
     Raises:
-      :py:class:`aiohttp.web_exceptions.HTTPException`: The appropriate
+      :py:class:`aiohttp.ClientResponseError`: The appropriate
         error for the response's status.
-
-    This function was taken from the aslack project and modified. The original
-    copyright notice:
-
-    Copyright (c) 2015, Jonathan Sharpe
-
-    Permission to use, copy, modify, and/or distribute this software for any
-    purpose with or without fee is hereby granted, provided that the above
-    copyright notice and this permission notice appear in all copies.
-
-    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     """
 
-    try:
-        response.raise_for_status()
-    except aiohttp.ClientResponseError as exc:
+    if 400 <= response.status:
         reason = response.reason
 
         spacetrack_error_msg = None
@@ -407,16 +386,9 @@ async def _raise_for_status(response):
         if spacetrack_error_msg:
             reason += '\nSpace-Track response:\n' + spacetrack_error_msg
 
-        payload = dict(
-            code=response.status,
+        raise aiohttp.ClientResponseError(
+            response.request_info,
+            response.history,
+            status=response.status,
             message=reason,
-            headers=response.headers,
-        )
-
-        # history attribute is only aiohttp >= 2.1
-        try:
-            payload['history'] = exc.history
-        except AttributeError:
-            pass
-
-        raise aiohttp.ClientResponseError(**payload)
+            headers=response.headers)

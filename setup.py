@@ -30,7 +30,7 @@ extras_require['test'] = [
     'responses',
 ]
 
-extras_require['async'] = ['aiohttp~=2.0']
+extras_require['async'] = ['aiohttp~=3.6']
 
 extras_require['docstest'] = [
     'doc8',
