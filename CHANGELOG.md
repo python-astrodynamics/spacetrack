@@ -3,6 +3,10 @@
 ## [Unreleased][unreleased]
 N/A
 
+## [0.13.7][]
+### Added
+- Support for the general perturbations (gp) class.
+
 ## [0.13.6][]
 ### Fixed
 - Regression in 0.13 that prevented `spephemeris/download` from working by
@@ -118,7 +122,8 @@ N/A
 
 First release.
 
-[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.6...HEAD
+[unreleased]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.7...HEAD
+[0.13.7]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.6...0.13.7
 [0.13.6]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.5...0.13.6
 [0.13.5]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.4...0.13.5
 [0.13.4]: https://github.com/python-astrodynamics/spacetrack/compare/0.13.3...0.13.4
