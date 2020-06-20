@@ -16,7 +16,9 @@ from spacetrack.base import (
 def test_iter_lines_generator():
     """Test that lines are split correctly."""
     def mock_iter_content(self, chunk_size, decode_unicode):
-        for chunk in ['1\r\n2\r\n', '3\r', '\n4', '\r\n5']:
+        for chunk in [b'1\r\n2\r\n', b'3\r', b'\n4', b'\r\n5']:
+            if decode_unicode:
+                chunk = chunk.decode('utf-8')
             yield chunk
 
     with patch.object(Response, 'iter_content', mock_iter_content):
@@ -28,7 +30,9 @@ def test_iter_lines_generator():
 def test_iter_content_generator():
     """Test CRLF -> LF newline conversion."""
     def mock_iter_content(self, chunk_size, decode_unicode):
-        for chunk in ['1\r\n2\r\n', '3\r', '\n4', '\r\n5']:
+        for chunk in [b'1\r\n2\r\n', b'3\r', b'\n4', b'\r\n5']:
+            if decode_unicode:
+                chunk = chunk.decode('utf-8')
             yield chunk
 
     with patch.object(Response, 'iter_content', mock_iter_content):
@@ -38,7 +42,7 @@ def test_iter_content_generator():
 
         result = list(
             _iter_content_generator(response=Response(), decode_unicode=False))
-        assert result == ['1\r\n2\r\n', '3\r', '\n4', '\r\n5']
+        assert result == [b'1\r\n2\r\n', b'3\r', b'\n4', b'\r\n5']
 
 
 def test_generic_request_exceptions():
