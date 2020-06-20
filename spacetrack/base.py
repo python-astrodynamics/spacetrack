@@ -463,7 +463,9 @@ class SpaceTrackClient(object):
                 # It seems that only the per-minute rate limit causes an HTTP
                 # 500 error. Breaking the per-hour limit seems to result in an
                 # email from Space-Track instead.
-                self._ratelimit_wait(60)
+                self._ratelimit_wait(
+                    self._per_minute_throttle.rate.period.total_seconds()
+                )
                 resp = self.session.get(*args, **kwargs)
 
         return resp

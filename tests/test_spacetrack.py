@@ -6,6 +6,7 @@ import pytest
 import requests
 import responses
 from requests import HTTPError, Response
+from rush.quota import Quota
 from spacetrack import (
     AuthenticationError, SpaceTrackClient, UnknownPredicateTypeWarning)
 from spacetrack.base import (
@@ -295,7 +296,7 @@ def test_ratelimit_error():
     st = SpaceTrackClient('identity', 'password')
 
     # Change ratelimiter period to speed up test
-    st._ratelimiter.period = 1
+    st._per_minute_throttle.rate = Quota.per_second(30)
 
     # Do it first without our own callback, then with.
 
@@ -353,7 +354,7 @@ def test_non_ratelimit_error():
     st = SpaceTrackClient('identity', 'password')
 
     # Change ratelimiter period to speed up test
-    st._ratelimiter.period = 1
+    st._per_minute_throttle.rate = Quota.per_second(30)
 
     mock_callback = Mock()
     st.callback = mock_callback
