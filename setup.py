@@ -91,5 +91,6 @@ setup(
     ],
     license=LICENSE,
     install_requires=requires,
+    python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*',
     extras_require=extras_require,
     tests_require=extras_require['test'])
