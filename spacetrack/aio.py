@@ -39,7 +39,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
     def _create_session():
         # Use requests/certifi CA file
         ctx = ssl.create_default_context(cafile=requests.certs.where())
-        connector = aiohttp.TCPConnector(ssl_context=ctx)
+        connector = aiohttp.TCPConnector(ssl=ctx)
         return aiohttp.ClientSession(connector=connector)
 
     async def _ratelimit_callback(self, until):
