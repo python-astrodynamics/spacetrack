@@ -1,12 +1,10 @@
-# coding: utf-8
-from __future__ import absolute_import, division, print_function
-
 import datetime as dt
 import re
 import threading
 import time
 import warnings
 import weakref
+from collections.abc import Mapping
 from collections import OrderedDict
 from functools import partial
 
@@ -19,11 +17,6 @@ from rush.limiters.periodic import PeriodicLimiter
 from rush.stores.dictionary import DictionaryStore as RushDictionaryStore
 
 from .operators import _stringify_predicate_value
-
-try:
-    from collections.abc import Mapping
-except ImportError:
-    from collections import Mapping
 
 logger = Logger('spacetrack')
 

@@ -1,14 +1,7 @@
-# coding: utf-8
-from __future__ import absolute_import, division, print_function
-
 import datetime
+from collections.abc import Sequence
 
 import six
-
-try:
-    from collections.abc import Sequence
-except ImportError:
-    from collections import Sequence
 
 
 def greater_than(value):

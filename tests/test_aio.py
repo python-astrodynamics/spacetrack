@@ -1,6 +1,3 @@
-# coding: utf-8
-from __future__ import absolute_import, division, print_function
-
 from collections.abc import AsyncIterator
 from unittest.mock import Mock, patch
 

@@ -42,7 +42,6 @@ extras_require['docstest'] = [
 
 extras_require['pep8test'] = [
     'flake8',
-    'flake8-coding',
     'flake8-future-import',
     'pep8-naming',
 ]

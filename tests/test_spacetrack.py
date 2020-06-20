@@ -1,8 +1,6 @@
-# coding: utf-8
-from __future__ import absolute_import, division, print_function
-
 import datetime as dt
 import json
+from unittest.mock import Mock, call, patch
 
 import pytest
 import requests
@@ -13,11 +11,6 @@ from spacetrack import (
 from spacetrack.base import (
     Predicate, _iter_content_generator, _iter_lines_generator,
     _raise_for_status)
-
-try:
-    from unittest.mock import Mock, call, patch
-except ImportError:
-    from mock import Mock, call, patch
 
 
 def test_iter_lines_generator():

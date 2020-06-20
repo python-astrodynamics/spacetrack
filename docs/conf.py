@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-#
 # spacetrack documentation build configuration file.
 #
 # This file is execfile()d with the current directory set to its
@@ -11,8 +9,6 @@
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
-from __future__ import absolute_import, division, print_function
-
 from contextlib import suppress
 from numbers import Number
 import os
