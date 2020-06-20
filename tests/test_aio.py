@@ -4,10 +4,13 @@ from unittest.mock import Mock, patch
 import asyncio
 import pytest
 from aiohttp import ClientResponse
+from aiohttp.helpers import TimerNoop
 from spacetrack import AuthenticationError
 from spacetrack.aio import (
-    AsyncSpaceTrackClient, _AsyncChunkIterator, _AsyncLineIterator)
+    AsyncSpaceTrackClient, _iter_content_generator, _iter_lines_generator)
 from yarl import URL
+
+ST_URL = URL('https://www.space-track.org')
 
 
 @pytest.mark.asyncio
@@ -16,13 +19,15 @@ async def test_authenticate():
 
     loop = asyncio.get_event_loop()
     response = ClientResponse(
-        'post', URL('https://www.space-track.org/ajaxauth/login'))
-
-    # aiohttp 2.2 uses session
-    try:
-        response._post_init(loop)
-    except TypeError:
-        response._post_init(loop, st.session)
+        'post', ST_URL / 'ajaxauth/login',
+        request_info=Mock(),
+        writer=Mock(),
+        continue100=None,
+        timer=TimerNoop(),
+        traces=[],
+        loop=loop,
+        session=st.session,
+    )
 
     response.status = 200
     response.json = Mock()
@@ -39,24 +44,26 @@ async def test_authenticate():
             response.json.return_value.set_result('')
         return response
 
-    with st, patch.object(st.session, 'post', mock_post):
-        with pytest.raises(AuthenticationError):
+    async with st:
+        with patch.object(st.session, 'post', mock_post):
+            with pytest.raises(AuthenticationError):
+                await st.authenticate()
+
+            assert response.json.call_count == 1
+
+            st.password = 'password'
             await st.authenticate()
 
-        assert response.json.call_count == 1
-
-        st.password = 'password'
-        await st.authenticate()
-
-        # This shouldn't make a HTTP request since we're already authenticated.
-        await st.authenticate()
+            # This shouldn't make a HTTP request since we're already authenticated.
+            await st.authenticate()
 
     assert response.json.call_count == 2
 
     st = AsyncSpaceTrackClient('identity', 'unknownresponse')
 
-    with st, patch.object(st.session, 'post', mock_post):
-        await st.authenticate()
+    async with st:
+        with patch.object(st.session, 'post', mock_post):
+            await st.authenticate()
 
     response.close()
 
@@ -91,7 +98,7 @@ async def test_generic_request_exceptions():
         with pytest.raises(TypeError):
             await st.generic_request('tle', madeupkeyword=None)
 
-    st.close()
+    await st.close()
 
 
 @pytest.mark.asyncio
@@ -137,14 +144,16 @@ async def test_generic_request():
 
     loop = asyncio.get_event_loop()
     response = ClientResponse(
-        'get', URL('https://www.space-track.org/basicspacedata/query/class'
-                   '/tle_publish/format/tle'))
-
-    # aiohttp 2.2 uses session
-    try:
-        response._post_init(loop)
-    except TypeError:
-        response._post_init(loop, st.session)
+        'get',
+        ST_URL / 'basicspacedata/query/class/tle_publish/format/tle',
+        request_info=Mock(),
+        writer=Mock(),
+        continue100=None,
+        timer=TimerNoop(),
+        traces=[],
+        loop=loop,
+        session=st.session,
+    )
 
     tle = (
         '1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927\r\n'
@@ -174,16 +183,17 @@ async def test_generic_request():
         assert await st.tle_publish(format='tle') == normalised_tle
 
     response.close()
-
     response = ClientResponse(
-        'get', URL('https://www.space-track.org/basicspacedata/query/class'
-                   '/tle_publish'))
-
-    # aiohttp 2.2 uses session
-    try:
-        response._post_init(loop)
-    except TypeError:
-        response._post_init(loop, st.session)
+        'get',
+        ST_URL / 'basicspacedata/query/class/tle_publish',
+        request_info=Mock(),
+        writer=Mock(),
+        continue100=None,
+        timer=TimerNoop(),
+        traces=[],
+        loop=loop,
+        session=st.session,
+    )
 
     response.status = 200
     response.json = Mock()
@@ -201,42 +211,65 @@ async def test_generic_request():
 
     response.close()
 
-    st.close()
+    await st.close()
 
 
 @pytest.mark.asyncio
-async def test_async_iterator():
-    response = Mock()
+async def test_iter_lines_generator():
+    """Test that lines are split correctly."""
+    async def mock_iter_content(n):
+        for chunk in [b'1\r\n2\r\n', b'3\r', b'\n4', b'\r\n5']:
+            yield chunk
 
-    class TestAsyncIterator(AsyncIterator):
-        def __init__(self):
-            self.i = 0
+    response = ClientResponse(
+        'get', ST_URL,
+        request_info=Mock(),
+        writer=Mock(),
+        continue100=None,
+        timer=TimerNoop(),
+        traces=[],
+        loop=Mock(),
+        session=Mock(),
+    )
+    response._headers = {'Content-Type': 'application/json;charset=utf-8'}
+    with patch.object(response, 'content', Mock(iter_chunked=mock_iter_content)):
+        result = [
+            line async for line in _iter_lines_generator(
+                response=response, decode_unicode=True
+            )
+        ]
+        assert result == ['1', '2', '3', '4', '5']
 
-        async def __anext__(self):
-            self.i += 1
 
-            if self.i > 5:
-                raise StopAsyncIteration
-            else:
-                return '{}\r\n'.format(self.i).encode('utf-8')
+@pytest.mark.asyncio
+async def test_iter_content_generator():
+    """Test CRLF -> LF newline conversion."""
+    async def mock_iter_content(n):
+        for chunk in [b'1\r\n2\r\n', b'3\r', b'\n4', b'\r\n5']:
+            yield chunk
 
-    response.content = TestAsyncIterator()
-    ait = _AsyncLineIterator(response, True)
-    ait.get_encoding = lambda: 'utf-8'
+    response = ClientResponse(
+        'get', ST_URL,
+        request_info=Mock(),
+        writer=Mock(),
+        continue100=None,
+        timer=TimerNoop(),
+        traces=[],
+        loop=Mock(),
+        session=Mock(),
+    )
+    response._headers = {'Content-Type': 'application/json;charset=utf-8'}
+    with patch.object(response, 'content', Mock(iter_chunked=mock_iter_content)):
+        result = [
+            line async for line in _iter_content_generator(
+                response=response, decode_unicode=True
+            )
+        ]
+        assert result == ['1\n2\n', '3', '\n4', '\n5']
 
-    lines = list()
-    async for line in ait:
-        lines.append(line)
-
-    assert lines == ['1', '2', '3', '4', '5']
-
-    response = Mock()
-    response.content.iter_chunked.return_value = TestAsyncIterator()
-    ait = _AsyncChunkIterator(response, True)
-    ait.get_encoding = lambda: 'utf-8'
-
-    chunks = list()
-    async for chunk in ait:
-        chunks.append(chunk)
-
-    assert chunks == ['1\n', '2\n', '3\n', '4\n', '5\n']
+        result = [
+            line async for line in _iter_content_generator(
+                response=response, decode_unicode=False
+            )
+        ]
+        assert result == [b'1\r\n2\r\n', b'3\r', b'\n4', b'\r\n5']
