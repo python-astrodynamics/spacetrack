@@ -145,6 +145,7 @@ class SpaceTrackClient(object):
         'decay',
         'tip',
         'announcement',
+        'gp',
     }
 
     request_controllers['expandedspacedata'] = {
