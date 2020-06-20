@@ -8,7 +8,7 @@ import aiohttp.web_exceptions
 import requests.certs
 from aiohttp.helpers import parse_mimetype
 
-from .base import AuthenticationError, SpaceTrackClient, logger
+from .base import RATELIMIT_KEY, AuthenticationError, SpaceTrackClient, logger
 from .operators import _stringify_predicate_value
 
 
@@ -211,8 +211,21 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                     return self._parse_types(data, predicates)
 
     async def _ratelimited_get(self, *args, **kwargs):
-        async with self._ratelimiter:
-            resp = await self.session.get(*args, **kwargs)
+        minute_limit = self._per_minute_throttle.check(RATELIMIT_KEY, 1)
+        hour_limit = self._per_hour_throttle.check(RATELIMIT_KEY, 1)
+
+        sleep_time = 0
+
+        if minute_limit.limited:
+            sleep_time = minute_limit.retry_after.total_seconds()
+
+        if hour_limit.limited:
+            sleep_time = max(sleep_time, hour_limit.retry_after.total_seconds())
+
+        if sleep_time > 0:
+            await self._ratelimit_wait(sleep_time)
+
+        resp = await self.session.get(*args, **kwargs)
 
         # It's possible that Space-Track will return HTTP status 500 with a
         # query rate limit violation. This can happen if a script is cancelled
@@ -226,16 +239,18 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             # Let's only retry if the error page tells us it's a rate limit
             # violation.in
             if 'violated your query rate limit' in text:
-                # Mimic the RateLimiter callback behaviour.
-                until = time.time() + self._ratelimiter.period
-                asyncio.ensure_future(self._ratelimit_callback(until))
-                await asyncio.sleep(self._ratelimiter.period)
-
-                # Now retry
-                async with self._ratelimiter:
-                    resp = await self.session.get(*args, **kwargs)
+                # It seems that only the per-minute rate limit causes an HTTP
+                # 500 error. Breaking the per-hour limit seems to result in an
+                # email from Space-Track instead.
+                await self._ratelimit_wait(60)
+                resp = await self.session.get(*args, **kwargs)
 
         return resp
+
+    async def _ratelimit_wait(self, duration):
+        until = time.monotonic() + duration
+        asyncio.ensure_future(self._ratelimit_callback(until))
+        await asyncio.sleep(duration)
 
     async def _download_predicate_data(self, class_, controller):
         """Get raw predicate information for given request class, and cache for
