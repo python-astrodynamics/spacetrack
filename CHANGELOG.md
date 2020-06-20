@@ -1,7 +1,16 @@
 # Change Log
 
 ## [Unreleased][unreleased]
-N/A
+### Added
+- Support for Space-Track's per-hour rate limit in addition to the per-minute
+  limit.
+### Changed
+- The per-minute rate limit was increased to 30 as documented by Space-Track.
+- Require aiohttp 3 for the `async` extra.
+- `AsyncSpaceTrackClient` is now an asynchronous context manager. Use
+  `async with` instead of `with`.
+### Removed
+- **Support for Python 2.7, 3.4, and 3.5**.
 
 ## [0.13.7][]
 ### Added
