@@ -12,8 +12,11 @@ from functools import partial
 
 import requests
 from logbook import Logger
-from ratelimiter import RateLimiter
 from represent import ReprHelper, ReprHelperMixin
+from rush.quota import Quota
+from rush.throttle import Throttle
+from rush.limiters.periodic import PeriodicLimiter
+from rush.stores.dictionary import DictionaryStore as RushDictionaryStore
 
 from .operators import _stringify_predicate_value
 
@@ -35,6 +38,8 @@ enum_re = re.compile(r"""
 """, re.VERBOSE)
 
 BASE_URL = 'https://www.space-track.org/'
+
+RATELIMIT_KEY = 'request'
 
 
 class AuthenticationError(Exception):
@@ -207,14 +212,23 @@ class SpaceTrackClient(object):
         self._predicates = dict()
         self._controller_proxies = dict()
 
-        # "Space-track throttles API use in order to maintain consistent
-        # performance for all users. To avoid error messages, please limit
-        # your query frequency to less than 20 requests per minute."
-        self._ratelimiter = RateLimiter(
-            max_calls=19, period=60, callback=self._ratelimit_callback)
+        # From https://www.space-track.org/documentation#/api:
+        #   Space-track throttles API use in order to maintain consistent
+        #   performance for all users. To avoid error messages, please limit
+        #   your query frequency.
+        #   Limit API queries to less than 30 requests per minute / 300 requests
+        #   per hour
+        self._per_minute_throttle = Throttle(
+            limiter=PeriodicLimiter(RushDictionaryStore()),
+            rate=Quota.per_minute(30),
+        )
+        self._per_hour_throttle = Throttle(
+            limiter=PeriodicLimiter(RushDictionaryStore()),
+            rate=Quota.per_hour(300),
+        )
 
     def _ratelimit_callback(self, until):
-        duration = int(round(until - time.time()))
+        duration = int(round(until - time.monotonic()))
         logger.info('Rate limit reached. Sleeping for {:d} seconds.', duration)
 
         if self.callback is not None:
@@ -427,8 +441,21 @@ class SpaceTrackClient(object):
 
     def _ratelimited_get(self, *args, **kwargs):
         """Perform get request, handling rate limiting."""
-        with self._ratelimiter:
-            resp = self.session.get(*args, **kwargs)
+        minute_limit = self._per_minute_throttle.check(RATELIMIT_KEY, 1)
+        hour_limit = self._per_hour_throttle.check(RATELIMIT_KEY, 1)
+
+        sleep_time = 0
+
+        if minute_limit.limited:
+            sleep_time = minute_limit.retry_after.total_seconds()
+
+        if hour_limit.limited:
+            sleep_time = max(sleep_time, hour_limit.retry_after.total_seconds())
+
+        if sleep_time > 0:
+            self._ratelimit_wait(sleep_time)
+
+        resp = self.session.get(*args, **kwargs)
 
         # It's possible that Space-Track will return HTTP status 500 with a
         # query rate limit violation. This can happen if a script is cancelled
@@ -440,18 +467,20 @@ class SpaceTrackClient(object):
             # Let's only retry if the error page tells us it's a rate limit
             # violation.
             if 'violated your query rate limit' in resp.text:
-                # Mimic the RateLimiter callback behaviour.
-                until = time.time() + self._ratelimiter.period
-                t = threading.Thread(target=self._ratelimit_callback, args=(until,))
-                t.daemon = True
-                t.start()
-                time.sleep(self._ratelimiter.period)
-
-                # Now retry
-                with self._ratelimiter:
-                    resp = self.session.get(*args, **kwargs)
+                # It seems that only the per-minute rate limit causes an HTTP
+                # 500 error. Breaking the per-hour limit seems to result in an
+                # email from Space-Track instead.
+                self._ratelimit_wait(60)
+                resp = self.session.get(*args, **kwargs)
 
         return resp
+
+    def _ratelimit_wait(self, duration):
+        until = time.monotonic() + duration
+        t = threading.Thread(target=self._ratelimit_callback, args=(until,))
+        t.daemon = True
+        t.start()
+        time.sleep(duration)
 
     def __getattr__(self, attr):
         if attr in self.request_controllers:

@@ -16,9 +16,9 @@ EMAIL = metadata['email']
 
 requires = [
     'logbook>=0.12.3',
-    'ratelimiter>=1.2.0',
     'represent>=1.4.0',
     'requests',
+    'rush',
     'six',
 ]
 
