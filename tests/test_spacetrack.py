@@ -618,6 +618,7 @@ def test_dir():
         'file',
         'file_history',
         'fileshare',
+        'gp',
         'identity',
         'launch_site',
         'maneuver',
