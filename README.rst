@@ -71,7 +71,7 @@ spacetrack uses `semantic versioning <http://semver.org>`__
    :target: https://travis-ci.org/python-astrodynamics/spacetrack
 .. |PyPI Version| image:: http://img.shields.io/pypi/v/spacetrack.svg?style=flat-square
    :target: https://pypi.python.org/pypi/spacetrack/
-.. |Python Version| image:: https://img.shields.io/badge/python-2.7%2C%203-brightgreen.svg?style=flat-square
+.. |Python Version| image:: https://img.shields.io/badge/python-3.6%2B-brightgreen.svg?style=flat-square
    :target: https://www.python.org/downloads/
 .. |MIT License| image:: http://img.shields.io/badge/license-MIT-blue.svg?style=flat-square
    :target: https://raw.githubusercontent.com/python-astrodynamics/spacetrack/master/LICENSE.txt
