@@ -54,6 +54,9 @@ setup(
     author=AUTHOR,
     author_email=EMAIL,
     url='https://github.com/python-astrodynamics/spacetrack',
+    project_urls={
+        "Documentation": "https://spacetrack.readthedocs.io/",
+    },
     packages=find_packages(exclude=['tests']),
     classifiers=[
         'Development Status :: 4 - Beta',
