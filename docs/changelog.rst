@@ -1,25 +1,39 @@
 Change Log
 ==========
 
-.. _unreleasedunreleased:
+Unreleased_
+-----------
 
-`Unreleased <https://github.com/python-astrodynamics/spacetrack/compare/0.13.7...HEAD>`__
------------------------------------------------------------------------------------------
+Added
+~~~~~
 
-N/A
+-  Support for Space-Track’s per-hour rate limit in addition to the
+   per-minute limit.
 
-`0.13.7 <https://github.com/python-astrodynamics/spacetrack/compare/0.13.6...0.13.7>`__
----------------------------------------------------------------------------------------
+Changed
+~~~~~~~
+
+-  The per-minute rate limit was increased to 30 as documented by
+   Space-Track.
+-  Require aiohttp 3 for the ``async`` extra.
+-  ``AsyncSpaceTrackClient`` is now an asynchronous context manager. Use
+   ``async with`` instead of ``with``.
+
+Removed
+~~~~~~~
+
+-  **Support for Python 2.7, 3.4, and 3.5**.
+
+0.13.7_ - 2020-06-20
+--------------------
 
 Added
 ~~~~~
 
 -  Support for the general perturbations (gp) class.
 
-.. _section-1:
-
-`0.13.6 <https://github.com/python-astrodynamics/spacetrack/compare/0.13.5...0.13.6>`__
----------------------------------------------------------------------------------------
+0.13.6_ - 2020-03-20
+--------------------
 
 Fixed
 ~~~~~
@@ -27,12 +41,8 @@ Fixed
 -  Regression in 0.13 that prevented ``spephemeris/download`` from
    working by trying to load a model definition which it doesn’t have.
 
-.. _section-2:
-
-`0.13.5 <https://github.com/python-astrodynamics/spacetrack/compare/0.13.4...0.13.5>`__
----------------------------------------------------------------------------------------
-
-.. _fixed-1:
+0.13.5_ - 2020-03-18
+--------------------
 
 Fixed
 ~~~~~
@@ -41,12 +51,8 @@ Fixed
 -  Unknown predicate types issue a warning instead of raising an
    exception.
 
-.. _section-3:
-
-`0.13.4 <https://github.com/python-astrodynamics/spacetrack/compare/0.13.3...0.13.4>`__
----------------------------------------------------------------------------------------
-
-.. _added-1:
+0.13.4_ - 2019-12-24
+--------------------
 
 Added
 ~~~~~
@@ -54,12 +60,8 @@ Added
 -  ``SpaceTrackClient`` gained a ``base_url`` parameter to allow the use
    of an alternate Space-Track server.
 
-.. _section-4:
-
-`0.13.3 <https://github.com/python-astrodynamics/spacetrack/compare/0.13.2...0.13.3>`__
----------------------------------------------------------------------------------------
-
-.. _fixed-2:
+0.13.3_ - 2019-03-11
+--------------------
 
 Fixed
 ~~~~~
@@ -67,12 +69,8 @@ Fixed
 -  The deprecation warning about importing ``Sequence`` or ``Mapping``
    from ``collections`` instead of ``collections.abc``.
 
-.. _section-5:
-
-`0.13.2 <https://github.com/python-astrodynamics/spacetrack/compare/0.13.1...0.13.2>`__
----------------------------------------------------------------------------------------
-
-.. _fixed-3:
+0.13.2_ - 2018-12-31
+--------------------
 
 Fixed
 ~~~~~
@@ -81,12 +79,8 @@ Fixed
    yet aiohttp 3 compatible.
 -  Deprecation warnings about invalid escape sequences.
 
-.. _section-6:
-
-`0.13.1 <https://github.com/python-astrodynamics/spacetrack/compare/0.13.0...0.13.1>`__
----------------------------------------------------------------------------------------
-
-.. _fixed-4:
+0.13.1_ - 2018-01-18
+--------------------
 
 Fixed
 ~~~~~
@@ -94,12 +88,8 @@ Fixed
 -  ``spacetrack`` can be installed with setuptools v38.0+, which
    requires ``install_requires`` in ``setup.py`` to be ordered.
 
-.. _section-7:
-
-`0.13.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.12.0...0.13.0>`__
----------------------------------------------------------------------------------------
-
-.. _added-2:
+0.13.0_ - 2017-06-17
+--------------------
 
 Added
 ~~~~~
@@ -109,7 +99,11 @@ Added
 -  Compatibility with ``maneuver`` and ``maneuver_history`` request
    classes for ``expandedspacedata`` request controller.
 -  Compatibility with ``upload`` and ``delete`` request classes for
-   ``fileshare`` request controller. ### Fixed
+   ``fileshare`` request controller.
+
+Fixed
+~~~~~
+
 -  Predicates with the enum type are parsed correctly. Previously,
    single-valued enums had ``None`` as a second value, and enums with
    more than two values only had the first and last value due to the
@@ -117,15 +111,15 @@ Added
    ``spacetrack``, so the bug went unnoticed.
 -  Exception on Python 3.5+ in threads without an ``asyncio`` event loop
    (even using the normal ``SpaceTrackClient``). Fixed by requiring
-   ``ratelimiter`` >= 1.2.0 ### Changed
+   ``ratelimiter`` >= 1.2.0
+
+Changed
+~~~~~~~
+
 -  Require aiohttp >= 2.0 for the ``async`` extra.
 
-.. _section-8:
-
-`0.12.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.11.1...0.12.0>`__
----------------------------------------------------------------------------------------
-
-.. _added-3:
+0.12.0_ - 2016-06-28
+--------------------
 
 Added
 ~~~~~
@@ -138,8 +132,6 @@ Added
    ``SpaceTrackClient.generic_request('file', controller='fileshare')``.
 -  ``dir(SpaceTrackClient(...))`` now includes the request controllers
    and request classes so it’s easier to see what can be called.
-
-.. _fixed-5:
 
 Fixed
 ~~~~~
@@ -161,12 +153,8 @@ Changed
 -  ``AsyncSpaceTrackClient`` uses requests’ CA file for same experience
    with both clients.
 
-.. _section-9:
-
-`0.11.1 <https://github.com/python-astrodynamics/spacetrack/compare/0.11.0...0.11.1>`__
----------------------------------------------------------------------------------------
-
-.. _fixed-6:
+0.11.1_ - 2016-03-01
+--------------------
 
 Fixed
 ~~~~~
@@ -174,33 +162,23 @@ Fixed
 -  Bump `ratelimiter <https://pypi.python.org/pypi/ratelimiter>`__
    version to improve rate limiting for ``AsyncSpaceTrackClient``
 
-.. _changed-1:
-
 Changed
 ~~~~~~~
 
 -  Documentation included in source distribution.
 
-.. _section-10:
-
-`0.11.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.10.0...0.11.0>`__
----------------------------------------------------------------------------------------
-
-.. _added-4:
+0.11.0_ - 2016-02-21
+--------------------
 
 Added
 ~~~~~
 
 -  Some unit tests added for ``AsyncSpaceTrackClient``.
 
-.. _fixed-7:
-
 Fixed
 ~~~~~
 
 -  ``\r\n`` to ``\n`` newline conversion for async chunk iterator.
-
-.. _changed-2:
 
 Changed
 ~~~~~~~
@@ -210,12 +188,8 @@ Changed
    optional dependency ``aiohttp`` was not installed. It must be
    imported from ``spacetrack.aio``.
 
-.. _section-11:
-
-`0.10.0 <https://github.com/python-astrodynamics/spacetrack/compare/0.9.0...0.10.0>`__ - 2016-02-04
----------------------------------------------------------------------------------------------------
-
-.. _fixed-8:
+0.10.0_ - 2016-02-04
+--------------------
 
 Fixed
 ~~~~~
@@ -226,8 +200,6 @@ Fixed
 -  Rate limit violation HTTP status code 500 handled during predicate
    information request.
 
-.. _changed-3:
-
 Changed
 ~~~~~~~
 
@@ -237,9 +209,22 @@ Changed
    used inline instead.
 -  ``Predicate`` class now has a ``default`` attribute.
 
-.. _section-12:
-
-`0.9.0 <https://github.com/python-astrodynamics/spacetrack/compare/e5fc088a96ec1557d44931e00500cdcef8349fad...0.9.0>`__ - 2016-01-28
-------------------------------------------------------------------------------------------------------------------------------------
+0.9.0_ - 2016-01-28
+-------------------
 
 First release.
+
+.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/0.13.7...HEAD
+.. _0.13.7: https://github.com/python-astrodynamics/spacetrack/compare/0.13.6...0.13.7
+.. _0.13.6: https://github.com/python-astrodynamics/spacetrack/compare/0.13.5...0.13.6
+.. _0.13.5: https://github.com/python-astrodynamics/spacetrack/compare/0.13.4...0.13.5
+.. _0.13.4: https://github.com/python-astrodynamics/spacetrack/compare/0.13.3...0.13.4
+.. _0.13.3: https://github.com/python-astrodynamics/spacetrack/compare/0.13.2...0.13.3
+.. _0.13.2: https://github.com/python-astrodynamics/spacetrack/compare/0.13.1...0.13.2
+.. _0.13.1: https://github.com/python-astrodynamics/spacetrack/compare/0.13.0...0.13.1
+.. _0.13.0: https://github.com/python-astrodynamics/spacetrack/compare/0.12.0...0.13.0
+.. _0.12.0: https://github.com/python-astrodynamics/spacetrack/compare/0.11.1...0.12.0
+.. _0.11.1: https://github.com/python-astrodynamics/spacetrack/compare/0.11.0...0.11.1
+.. _0.11.0: https://github.com/python-astrodynamics/spacetrack/compare/0.10.0...0.11.0
+.. _0.10.0: https://github.com/python-astrodynamics/spacetrack/compare/0.9.0...0.10.0
+.. _0.9.0: https://github.com/python-astrodynamics/spacetrack/compare/e5fc088a96ec1557d44931e00500cdcef8349fad...0.9.0
