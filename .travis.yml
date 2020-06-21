@@ -14,10 +14,8 @@ matrix:
       env: TOXENV=py37
     - python: 3.8
       env: TOXENV=py38
-    - python: 2.7
-      env: TOXENV=py2pep8
     - python: 3.8
-      env: TOXENV=py3pep8
+      env: TOXENV=pep8
     - python: 3.8
       env: TOXENV=docs
       addons:
@@ -43,7 +41,3 @@ after_success:
 
 after_script:
   - cat .tox/$TOXENV/log/$TOXENV-*.log
-
-notifications:
-  slack:
-    secure: SM4n2Dlk+V/nPmFHGC4cY6z8L0yJIIB6VycOJJdb94ekDToJViNjw9VQLQ4RXjAB+ecQucPXGS11DtX9CGUokCDeeCSoBFM7XLB3zP+ux0bzWa9NoNBtC2V5tCp7k1dr/YDRB30fj/dBkRMllp8rQAT4Ba5Zj9hML/IdlfCLZ0NOg9TaIkBhQZwDYSoKb5Q97Xcc6w1HnlXbY+7Jwi4d5urSsLhEN2SPgjh0vmxEZHdYKVRdNDlxddzPOykbSD5F+6AGbROQ9o03w4TmEGi54b2yIjQYoDZ4QMdx9nRc/c+mKmTb9RvVmuwP8M+bBYS18mryWectui0HcY6N1SHKyQkmF+BrvUhfhwNp1aBkITJFGut0UTMJZxUoZbN1kXofHJi0dVGv85XTcdDnuiz54Mjoj2YuLK5yw23vdHSg6qFC6F+B8BcuY27HaDmRYqM+EkuIrv8ysMMkUeSbZS2O5Sq/UVbJZyyCClQn63748gkviXYxJ428ZfaZ+N3fqBUv9yKqwsKJFo2+E0D5zoeDBC/3pVQNONjcc4zYGFsw0Y1+ddhEumxXR5+E+BWsvot/BtAOVikEF315+/kJYVTQ2/HkI4blRMzQfVFmZuqT0i1DZsaAjGGctIkbrxd8dfRhERiykeVmEmmcsYu2lWFqtGr7i+uDjMjDBw8V8NX+ves=
