@@ -138,11 +138,10 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             classes = self.request_controllers.get(controller, None)
             if classes is None:
                 raise ValueError(
-                    'Unknown request controller {!r}'.format(controller))
+                    f'Unknown request controller {controller!r}')
             if class_ not in classes:
                 raise ValueError(
-                    'Unknown request class {!r} for controller {!r}'
-                    .format(class_, controller))
+                    f'Unknown request class {class_!r} for controller {controller!r}')
 
         # Decode unicode unless class == download, including conversion of
         # CRLF newlines to LF.
@@ -156,8 +155,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
         await self.authenticate()
 
-        url = ('{0}{1}/query/class/{2}'
-               .format(self.base_url, controller, class_))
+        url = f'{self.base_url}{controller}/query/class/{class_}'
 
         offline_check = (class_, controller) in self.offline_predicates
         valid_fields = {p.name for p in self.rest_predicates}
@@ -173,12 +171,11 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         for key, value in kwargs.items():
             if key not in valid_fields:
                 raise TypeError(
-                    "'{class_}' got an unexpected argument '{key}'"
-                    .format(class_=class_, key=key))
+                    f"'{class_}' got an unexpected argument '{key}'")
 
             value = _stringify_predicate_value(value)
 
-            url += '/{key}/{value}'.format(key=key, value=value)
+            url += f'/{key}/{value}'
 
         logger.debug(url)
 
@@ -258,8 +255,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         """
         await self.authenticate()
 
-        url = ('{0}{1}/modeldef/class/{2}'
-               .format(self.base_url, controller, class_))
+        url = f'{self.base_url}{controller}/modeldef/class/{class_}'
 
         resp = await self._ratelimited_get(url)
 
@@ -279,10 +275,10 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                 classes = self.request_controllers.get(controller, None)
                 if classes is None:
                     raise ValueError(
-                        'Unknown request controller {!r}'.format(controller))
+                        f'Unknown request controller {controller!r}')
                 if class_ not in classes:
                     raise ValueError(
-                        'Unknown request class {!r}'.format(class_))
+                        f'Unknown request class {class_!r}')
 
             predicates_data = await self._download_predicate_data(
                 class_, controller)

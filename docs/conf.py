@@ -80,7 +80,7 @@ VERSION = '.'.join(str(n) for n in ver_parts if isinstance(n, Number))
 
 # General information about the project.
 project = 'spacetrack'
-copyright = '2015, {}'.format(AUTHOR)
+copyright = f'2015, {AUTHOR}'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

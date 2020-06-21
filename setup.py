@@ -19,7 +19,6 @@ requires = [
     'represent>=1.4.0',
     'requests',
     'rush',
-    'six',
 ]
 
 extras_require = dict()

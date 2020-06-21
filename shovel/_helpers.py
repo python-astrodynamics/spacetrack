@@ -4,14 +4,14 @@ from plumbum.cmd import git
 def check_git_unchanged(filename, yes=False):
     """Check git to avoid overwriting user changes."""
     if check_staged(filename):
-        s = 'There are staged changes in {}, overwrite? [y/n] '.format(filename)
+        s = f'There are staged changes in {filename}, overwrite? [y/n] '
         if yes or input(s) in ('y', 'yes'):
             return
         else:
             raise RuntimeError('There are staged changes in '
                                '{}, aborting.'.format(filename))
     if check_unstaged(filename):
-        s = 'There are unstaged changes in {}, overwrite? [y/n] '.format(filename)
+        s = f'There are unstaged changes in {filename}, overwrite? [y/n] '
         if yes or input(s) in ('y', 'yes'):
             return
         else:

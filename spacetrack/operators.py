@@ -1,8 +1,6 @@
 import datetime
 from collections.abc import Sequence
 
-import six
-
 
 def greater_than(value):
     """``'>value'``."""
@@ -45,7 +43,7 @@ def _stringify_predicate_value(value):
     """
     if isinstance(value, bool):
         return str(value).lower()
-    elif isinstance(value, Sequence) and not isinstance(value, six.string_types):
+    elif isinstance(value, Sequence) and not isinstance(value, str):
         return ','.join(_stringify_predicate_value(x) for x in value)
     elif isinstance(value, datetime.datetime):
         return value.isoformat(sep=' ')

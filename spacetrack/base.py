@@ -43,7 +43,7 @@ class UnknownPredicateTypeWarning(RuntimeWarning):
     """Used to warn when a predicate type is unknown."""
 
 
-class Predicate(ReprHelperMixin, object):
+class Predicate(ReprHelperMixin):
     """Hold Space-Track predicate information.
 
     The current goal of this class is to print the repr for the user.
@@ -81,7 +81,7 @@ class Predicate(ReprHelperMixin, object):
             return value
 
 
-class SpaceTrackClient(object):
+class SpaceTrackClient:
     """SpaceTrack client class.
 
     Parameters:
@@ -334,12 +334,10 @@ class SpaceTrackClient(object):
         else:
             classes = self.request_controllers.get(controller, None)
             if classes is None:
-                raise ValueError(
-                    'Unknown request controller {!r}'.format(controller))
+                raise ValueError(f'Unknown request controller {controller!r}')
             if class_ not in classes:
                 raise ValueError(
-                    'Unknown request class {!r} for controller {!r}'
-                    .format(class_, controller))
+                    f'Unknown request class {class_!r} for controller {controller!r}')
 
         # Decode unicode unless class == download, including conversion of
         # CRLF newlines to LF.
@@ -353,8 +351,7 @@ class SpaceTrackClient(object):
 
         self.authenticate()
 
-        url = ('{0}{1}/query/class/{2}'
-               .format(self.base_url, controller, class_))
+        url = f'{self.base_url}{controller}/query/class/{class_}'
 
         offline_check = (class_, controller) in self.offline_predicates
         valid_fields = {p.name for p in self.rest_predicates}
@@ -371,16 +368,14 @@ class SpaceTrackClient(object):
 
         for key, value in kwargs.items():
             if key not in valid_fields:
-                raise TypeError(
-                    "'{class_}' got an unexpected argument '{key}'"
-                    .format(class_=class_, key=key))
+                raise TypeError(f"'{class_}' got an unexpected argument '{key}'")
 
             if class_ == 'upload' and key == 'file':
                 continue
 
             value = _stringify_predicate_value(value)
 
-            url += '/{key}/{value}'.format(key=key, value=value)
+            url += f'/{key}/{value}'
 
         logger.debug(requests.utils.requote_uri(url))
 
@@ -489,8 +484,7 @@ class SpaceTrackClient(object):
             controller = self._find_controller(attr)
         except ValueError:
             raise AttributeError(
-                "'{name}' object has no attribute '{attr}'"
-                .format(name=self.__class__.__name__, attr=attr))
+                f"'{self.__class__.__name__}' object has no attribute '{attr}'")
 
         # generic_request can resolve the controller itself, but we
         # pass it because we have to check if the class_ is owned
@@ -524,7 +518,7 @@ class SpaceTrackClient(object):
             if class_ in classes:
                 return controller
         else:
-            raise ValueError('Unknown request class {!r}'.format(class_))
+            raise ValueError(f'Unknown request class {class_!r}')
 
     def _download_predicate_data(self, class_, controller):
         """Get raw predicate information for given request class, and cache for
@@ -532,8 +526,7 @@ class SpaceTrackClient(object):
         """
         self.authenticate()
 
-        url = ('{0}{1}/modeldef/class/{2}'
-               .format(self.base_url, controller, class_))
+        url = f'{self.base_url}{controller}/modeldef/class/{class_}'
 
         logger.debug(requests.utils.requote_uri(url))
 
@@ -554,10 +547,10 @@ class SpaceTrackClient(object):
                 classes = self.request_controllers.get(controller, None)
                 if classes is None:
                     raise ValueError(
-                        'Unknown request controller {!r}'.format(controller))
+                        f'Unknown request controller {controller!r}')
                 if class_ not in classes:
                     raise ValueError(
-                        'Unknown request class {!r}'.format(class_))
+                        f'Unknown request class {class_!r}')
 
             predicates_data = self._download_predicate_data(class_, controller)
             predicate_objects = self._parse_predicates_data(predicates_data)
@@ -572,7 +565,7 @@ class SpaceTrackClient(object):
             type_match = type_re.match(full_type)
             if not type_match:
                 raise ValueError(
-                    "Couldn't parse field type '{}'".format(full_type))
+                    f"Couldn't parse field type '{full_type}'")
 
             type_name = type_match.group(1)
             field_name = field['Field'].lower()
@@ -610,7 +603,7 @@ class SpaceTrackClient(object):
 
             if type_name not in types:
                 warnings.warn(
-                    'Unknown predicate type {!r}'.format(type_name),
+                    f'Unknown predicate type {type_name!r}',
                     UnknownPredicateTypeWarning,
                 )
 
@@ -624,7 +617,7 @@ class SpaceTrackClient(object):
                 enum_match = enum_re.match(full_type)
                 if not enum_match:
                     raise ValueError(
-                        "Couldn't parse enum type '{}'".format(full_type))
+                        f"Couldn't parse enum type '{full_type}'")
 
                 # match.groups() doesn't work for repeating groups, use findall
                 predicate.values = tuple(re.findall(r"'(\w+)'", full_type))
@@ -640,7 +633,7 @@ class SpaceTrackClient(object):
         return str(r)
 
 
-class _ControllerProxy(object):
+class _ControllerProxy:
     """Proxies request class methods with a preset request controller."""
     def __init__(self, client, controller):
         # The client will cache _ControllerProxy instances, so only store
@@ -650,9 +643,7 @@ class _ControllerProxy(object):
 
     def __getattr__(self, attr):
         if attr not in self.client.request_controllers[self.controller]:
-            raise AttributeError(
-                "'{self!r}' object has no attribute '{attr}'"
-                .format(self=self, attr=attr))
+            raise AttributeError(f"'{self!r}' object has no attribute '{attr}'")
 
         function = partial(
             self.client.generic_request, class_=attr,
@@ -716,8 +707,7 @@ def _iter_lines_generator(response, decode_unicode):
         else:
             pending = None
 
-        for line in lines:
-            yield line
+        yield from lines
 
     if pending is not None:
         yield pending
@@ -733,12 +723,16 @@ def _raise_for_status(response):
     http_error_msg = ''
 
     if 400 <= response.status_code < 500:
-        http_error_msg = '%s Client Error: %s for url: %s' % (
-            response.status_code, response.reason, response.url)
+        http_error_msg = (
+            f'{response.status_code} Client Error: {response.reason} '
+            f'for url: {response.url}'
+        )
 
     elif 500 <= response.status_code < 600:
-        http_error_msg = '%s Server Error: %s for url: %s' % (
-            response.status_code, response.reason, response.url)
+        http_error_msg = (
+            f'{response.status_code} Server Error: {response.reason} '
+            f'for url: {response.url}'
+        )
 
     if http_error_msg:
         spacetrack_error_msg = None

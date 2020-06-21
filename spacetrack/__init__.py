@@ -1,4 +1,3 @@
-
 from .base import (  # noqa
     AuthenticationError, SpaceTrackClient, UnknownPredicateTypeWarning)
 from .operators import (  # noqa
