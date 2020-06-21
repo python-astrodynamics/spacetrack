@@ -214,7 +214,8 @@ Changed
 
 First release.
 
-.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/0.13.7...HEAD
+.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/0.14.0...HEAD
+.. _0.14.0: https://github.com/python-astrodynamics/spacetrack/compare/0.13.7...0.14.0
 .. _0.13.7: https://github.com/python-astrodynamics/spacetrack/compare/0.13.6...0.13.7
 .. _0.13.6: https://github.com/python-astrodynamics/spacetrack/compare/0.13.5...0.13.6
 .. _0.13.5: https://github.com/python-astrodynamics/spacetrack/compare/0.13.4...0.13.5
