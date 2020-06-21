@@ -16,8 +16,8 @@ Changed
 -  The per-minute rate limit was increased to 30 as documented by
    Space-Track.
 -  Require aiohttp 3 for the ``async`` extra.
--  :class:`~spacetrack.aio.AsyncSpaceTrackClient` is now an asynchronous context
-   manager. Use ``async with`` instead of ``with``.
+-  :class:`~spacetrack.aio.AsyncSpaceTrackClient` is now an asynchronous
+   context manager. Use ``async with`` instead of ``with``.
 
 Removed
 ~~~~~~~
