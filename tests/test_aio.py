@@ -1,4 +1,3 @@
-from collections.abc import AsyncIterator
 from unittest.mock import Mock, patch
 
 import asyncio

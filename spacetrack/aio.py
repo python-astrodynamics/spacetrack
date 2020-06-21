@@ -1,7 +1,7 @@
 import asyncio
 import ssl
 import time
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import Mapping
 
 import aiohttp
 import aiohttp.web_exceptions
