@@ -144,6 +144,8 @@ class SpaceTrackClient:
         'tip',
         'announcement',
         'gp',
+        'gp_history',
+        'cdm_public',
     }
 
     request_controllers['expandedspacedata'] = {
