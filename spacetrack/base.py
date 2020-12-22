@@ -149,16 +149,19 @@ class SpaceTrackClient:
     }
 
     request_controllers['expandedspacedata'] = {
+        'car',
         'cdm',
         'maneuver',
         'maneuver_history',
         'organization',
+        'satellite',
     }
 
     request_controllers['fileshare'] = {
         'delete',
         'download',
         'file',
+        'folder',
         'upload',
     }
 
