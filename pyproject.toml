@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=40.6.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.coverage.run]
+branch = true
+source = ["spacetrack", "tests/"]
+
+[tool.coverage.paths]
+source = ["spacetrack", ".tox/*/lib/python*/site-packages/spacetrack"]
+
+[tool.coverage.report]
+precision = 1
+exclude_lines = ["pragma: no cover", "pass"]

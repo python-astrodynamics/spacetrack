@@ -1,7 +1,7 @@
 spacetrack
 -------------
 
-|PyPI Version| |Documentation| |Travis| |Coverage| |Python Version| |MIT License|
+|PyPI Version| |Documentation| |CI Status| |Coverage| |Python Version| |MIT License|
 
 spacetrack is a python module for `Space-Track <https://www.space-track.org>`__
 
@@ -67,8 +67,8 @@ Development
 
 spacetrack uses `semantic versioning <http://semver.org>`__
 
-.. |Travis| image:: http://img.shields.io/travis/python-astrodynamics/spacetrack/master.svg?style=flat-square&label=travis
-   :target: https://travis-ci.org/python-astrodynamics/spacetrack
+.. |CI Status| image:: https://github.com/python-astrodynamics/spacetrack/workflows/CI/badge.svg?branch=master
+   :target: https://github.com/python-astrodynamics/spacetrack/actions?workflow=CI
 .. |PyPI Version| image:: http://img.shields.io/pypi/v/spacetrack.svg?style=flat-square
    :target: https://pypi.python.org/pypi/spacetrack/
 .. |Python Version| image:: https://img.shields.io/badge/python-3.6%2B-brightgreen.svg?style=flat-square
