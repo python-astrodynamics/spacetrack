@@ -9,6 +9,13 @@ Added
 
 -  Support for the `car`, `folder`, and `satellite` classes.
 
+Fixed
+~~~~~
+
+- When ``parse_types`` is used, dates are parsed using an ISO 8601 parser,
+  which fixes the parsing of date formats returned by newer request classes
+  (e.g. gp).
+
 0.15.0_ - 2020-09-25
 --------------------
 
