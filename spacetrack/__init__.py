@@ -14,7 +14,7 @@ __all__ = (
     'startswith',
 )
 
-__version__ = '0.15.0'
+__version__ = '0.16.0'
 __description__ = 'Python client for space-track.org'
 
 __license__ = 'MIT'
