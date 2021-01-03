@@ -16,6 +16,7 @@ EMAIL = metadata['email']
 
 requires = [
     'logbook>=0.12.3',
+    'python-dateutil',
     'represent>=1.4.0',
     'requests',
     'rush',
