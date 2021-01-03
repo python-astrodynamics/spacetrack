@@ -1,4 +1,3 @@
-import datetime as dt
 import re
 import threading
 import time
@@ -9,6 +8,7 @@ from collections import OrderedDict
 from functools import partial
 
 import requests
+from dateutil.parser import isoparse
 from logbook import Logger
 from represent import ReprHelper, ReprHelperMixin
 from rush.quota import Quota
@@ -74,9 +74,9 @@ class Predicate(ReprHelperMixin):
         elif self.type_ == 'int':
             return int(value)
         elif self.type_ == 'datetime':
-            return dt.datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+            return isoparse(value)
         elif self.type_ == 'date':
-            return dt.datetime.strptime(value, '%Y-%m-%d').date()
+            return isoparse(value).date()
         else:
             return value
 
