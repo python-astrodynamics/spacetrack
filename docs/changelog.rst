@@ -4,7 +4,10 @@ Change Log
 Unreleased_
 -----------
 
-N/A
+Added
+~~~~~
+
+-  Support for the `car`, `folder`, and `satellite` classes.
 
 0.15.0_ - 2020-09-25
 --------------------

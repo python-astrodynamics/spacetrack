@@ -131,35 +131,38 @@ class SpaceTrackClient:
     ])
 
     request_controllers['basicspacedata'] = {
+        'announcement',
+        'boxscore',
+        'cdm_public',
+        'decay',
+        'gp',
+        'gp_history',
+        'launch_site',
+        'omm',
+        'satcat',
+        'satcat_change',
+        'satcat_debut',
+        'tip',
         'tle',
         'tle_latest',
         'tle_publish',
-        'omm',
-        'boxscore',
-        'satcat',
-        'launch_site',
-        'satcat_change',
-        'satcat_debut',
-        'decay',
-        'tip',
-        'announcement',
-        'gp',
-        'gp_history',
-        'cdm_public',
     }
 
     request_controllers['expandedspacedata'] = {
+        'car',
         'cdm',
-        'organization',
         'maneuver',
         'maneuver_history',
+        'organization',
+        'satellite',
     }
 
     request_controllers['fileshare'] = {
-        'file',
-        'download',
-        'upload',
         'delete',
+        'download',
+        'file',
+        'folder',
+        'upload',
     }
 
     request_controllers['spephemeris'] = {
