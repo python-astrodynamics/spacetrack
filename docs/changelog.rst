@@ -8,6 +8,12 @@ Added
 ~~~~~
 
 -  Support for the `car`, `folder`, and `satellite` classes.
+- A `rush storage backend`_ can be provided to a new ``rush_store`` argument to
+  coordinate rate limiting across multiple instances.
+- ``rush_key_prefix`` to optionally prefix keys used in the rust storage
+  backend.
+
+.. _`rush storage backend`: https://rush.readthedocs.io/en/stable/storage.html
 
 Fixed
 ~~~~~
