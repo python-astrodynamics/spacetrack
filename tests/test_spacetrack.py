@@ -601,7 +601,9 @@ def test_dir():
     assert dir(st) == [
         '_authenticated',
         '_controller_proxies',
+        '_per_hour_key',
         '_per_hour_throttle',
+        '_per_minute_key',
         '_per_minute_throttle',
         '_predicates',
         'announcement',
