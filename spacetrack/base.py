@@ -32,8 +32,6 @@ enum_re = re.compile(r"""
 
 BASE_URL = 'https://www.space-track.org/'
 
-RATELIMIT_KEY = 'request'
-
 
 class AuthenticationError(Exception):
     """Space-Track authentication error."""
@@ -88,6 +86,12 @@ class SpaceTrackClient:
         identity: Space-Track username.
         password: Space-Track password.
         base_url: May be overridden to use e.g. https://testing.space-track.org/
+        rush_store: A :mod:`rush` storage backend. By default, a
+            :class:`~rush.stores.dictionary.DictionaryStore` is used. You may
+            wish to use :class:`~rush.stores.dictionary.RedisStore` to
+            follow rate limits from multiple instances.
+        rush_key_prefix: You may choose a prefix for the keys that will be
+            stored in `rush_store`, e.g. to avoid conflicts in a redis db.
 
     For more information, refer to the `Space-Track documentation`_.
 
@@ -192,7 +196,14 @@ class SpaceTrackClient:
         Predicate('favorites', 'str'),
     }
 
-    def __init__(self, identity, password, base_url=BASE_URL):
+    def __init__(
+        self,
+        identity,
+        password,
+        base_url=BASE_URL,
+        rush_store=None,
+        rush_key_prefix='',
+    ):
         #: :class:`requests.Session` instance. It can be mutated to configure
         #: e.g. proxies.
         self.session = self._create_session()
@@ -216,14 +227,19 @@ class SpaceTrackClient:
         #   your query frequency.
         #   Limit API queries to less than 30 requests per minute / 300 requests
         #   per hour
+        if rush_store is None:
+            rush_store = RushDictionaryStore()
+        limiter = PeriodicLimiter(rush_store)
         self._per_minute_throttle = Throttle(
-            limiter=PeriodicLimiter(RushDictionaryStore()),
+            limiter=limiter,
             rate=Quota.per_minute(30),
         )
         self._per_hour_throttle = Throttle(
-            limiter=PeriodicLimiter(RushDictionaryStore()),
+            limiter=limiter,
             rate=Quota.per_hour(300),
         )
+        self._per_minute_key = rush_key_prefix + 'st_req_min'
+        self._per_hour_key = rush_key_prefix + 'st_req_hr'
 
     def _ratelimit_callback(self, until):
         duration = int(round(until - time.monotonic()))
@@ -434,8 +450,8 @@ class SpaceTrackClient:
 
     def _ratelimited_get(self, *args, **kwargs):
         """Perform get request, handling rate limiting."""
-        minute_limit = self._per_minute_throttle.check(RATELIMIT_KEY, 1)
-        hour_limit = self._per_hour_throttle.check(RATELIMIT_KEY, 1)
+        minute_limit = self._per_minute_throttle.check(self._per_minute_key, 1)
+        hour_limit = self._per_hour_throttle.check(self._per_hour_key, 1)
 
         sleep_time = 0
 
