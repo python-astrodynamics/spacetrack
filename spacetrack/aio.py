@@ -8,7 +8,7 @@ import aiohttp.web_exceptions
 import requests.certs
 from aiohttp.helpers import parse_mimetype
 
-from .base import RATELIMIT_KEY, AuthenticationError, SpaceTrackClient, logger
+from .base import AuthenticationError, SpaceTrackClient, logger
 from .operators import _stringify_predicate_value
 
 
@@ -208,8 +208,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                     return self._parse_types(data, predicates)
 
     async def _ratelimited_get(self, *args, **kwargs):
-        minute_limit = self._per_minute_throttle.check(RATELIMIT_KEY, 1)
-        hour_limit = self._per_hour_throttle.check(RATELIMIT_KEY, 1)
+        minute_limit = self._per_minute_throttle.check(self._per_minute_key, 1)
+        hour_limit = self._per_hour_throttle.check(self._per_hour_key, 1)
 
         sleep_time = 0
 
