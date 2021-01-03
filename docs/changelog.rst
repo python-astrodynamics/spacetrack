@@ -4,6 +4,11 @@ Change Log
 Unreleased_
 -----------
 
+N/A
+
+0.16.0_ - 2021-01-03
+--------------------
+
 Added
 ~~~~~
 
@@ -243,7 +248,8 @@ Changed
 
 First release.
 
-.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/0.15.0...HEAD
+.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/0.16.0...HEAD
+.. _0.16.0: https://github.com/python-astrodynamics/spacetrack/compare/0.15.0...0.16.0
 .. _0.15.0: https://github.com/python-astrodynamics/spacetrack/compare/0.14.0...0.15.0
 .. _0.14.0: https://github.com/python-astrodynamics/spacetrack/compare/0.13.7...0.14.0
 .. _0.13.7: https://github.com/python-astrodynamics/spacetrack/compare/0.13.6...0.13.7
