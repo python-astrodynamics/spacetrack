@@ -677,6 +677,14 @@ def test_parse_types():
                     'Type': 'datetime'
                 },
                 {
+                    'Default': None,
+                    'Extra': '',
+                    'Field': 'CREATION_DATE',
+                    'Key': '',
+                    'Null': 'YES',
+                    'Type': 'datetime'
+                },
+                {
                     'Default': '',
                     'Extra': '',
                     'Field': 'TLE_LINE1',
@@ -700,6 +708,8 @@ def test_parse_types():
         json=[{
             # Test a type that is parsed.
             'PUBLISH_EPOCH': '2017-01-02 03:04:05',
+            # Newer classes (e.g. gp) return a different date format
+            'CREATION_DATE': '2017-01-02T03:04:05',
             # Test a type that is passed through.
             'TLE_LINE1': 'The quick brown fox jumps over the lazy dog.',
             # Test a field there was no predicate for.
