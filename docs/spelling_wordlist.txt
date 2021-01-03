@@ -1,4 +1,5 @@
 async
+backend
 booleans
 coroutine
 datetimes
@@ -11,6 +12,7 @@ login
 lookup
 mixin
 readthedocs
+redis
 username
 enums
 regex
