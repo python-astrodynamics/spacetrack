@@ -62,7 +62,7 @@ source = ["spacetrack", ".tox/*/lib/python*/site-packages/spacetrack"]
 
 [tool.coverage.report]
 precision = 1
-exclude_lines = ["pragma: no cover", "pass"]
+exclude_lines = ["pragma: no cover", "^\\s*pass\\s*$"]
 
 [tool.isort]
 profile = "black"
