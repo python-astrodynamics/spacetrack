@@ -6,8 +6,10 @@ import weakref
 from collections import OrderedDict
 from collections.abc import Mapping
 from functools import partial
+from urllib.parse import quote
 
-import requests
+import attr
+import httpx
 from dateutil.parser import isoparse
 from logbook import Logger
 from represent import ReprHelper, ReprHelperMixin
@@ -42,6 +44,37 @@ class AuthenticationError(Exception):
 
 class UnknownPredicateTypeWarning(RuntimeWarning):
     """Used to warn when a predicate type is unknown."""
+
+
+class Event:
+    pass
+
+
+@attr.s(slots=True)
+class NormalRequest(Event):
+    request = attr.ib()
+    stream = attr.ib(default=False)
+
+
+@attr.s(slots=True)
+class ReadResponse(Event):
+    response = attr.ib()
+
+
+@attr.s(slots=True)
+class IterLines(Event):
+    response = attr.ib()
+
+
+@attr.s(slots=True)
+class IterContent(Event):
+    response = attr.ib()
+    decode = attr.ib()
+
+
+@attr.s(slots=True)
+class RateLimitWait(Event):
+    duration = attr.ib()
 
 
 class Predicate(ReprHelperMixin):
@@ -211,16 +244,15 @@ class SpaceTrackClient:
         base_url=BASE_URL,
         rush_store=None,
         rush_key_prefix="",
+        httpx_client=None,
     ):
-        #: :class:`requests.Session` instance. It can be mutated to configure
-        #: e.g. proxies.
-        self.session = self._create_session()
+        if httpx_client is None:
+            httpx_client = httpx.Client()
+        self.client = httpx_client
         self.identity = identity
         self.password = password
 
-        if not base_url.endswith("/"):
-            base_url += "/"
-        self.base_url = base_url
+        self.client.base_url = base_url
 
         # If set, this will be called when we sleep for the rate limit.
         self.callback = None
@@ -249,22 +281,58 @@ class SpaceTrackClient:
         self._per_minute_key = rush_key_prefix + "st_req_min"
         self._per_hour_key = rush_key_prefix + "st_req_hr"
 
-    def _ratelimit_callback(self, until):
-        duration = int(round(until - time.monotonic()))
-        logger.info("Rate limit reached. Sleeping for {:d} seconds.", duration)
+    @property
+    def base_url(self):
+        return str(self.client.base_url)
 
-        if self.callback is not None:
-            self.callback(until)
+    @base_url.setter
+    def base_url(self, url):
+        self.client.base_url = url
 
-    @staticmethod
-    def _create_session():
-        """Create session for accessing the web.
+    def _handle_event(self, event):
+        if isinstance(event, NormalRequest):
+            return self.client.send(event.request)
+        elif isinstance(event, ReadResponse):
+            return event.response.read()
+        elif isinstance(event, IterLines):
+            return _iter_lines_generator(event.response)
+        elif isinstance(event, IterContent):
+            return _iter_content_generator(event.response, event.decode)
+        elif isinstance(event, RateLimitWait):
+            self._ratelimit_wait(event.duration)
+        else:
+            raise RuntimeError(f"Unknown event type: {type(event)}")
 
-        This method is overridden in
-        :class:`spacetrac.aio.AsyncSpaceTrackClient` to use :mod:`aiohttp`
-        instead of :mod:`requests`.
-        """
-        return requests.Session()
+    def _run_event_generator(self, g):
+        # Start generator by sending in None
+        ret = None
+
+        while True:
+            try:
+                event = g.send(ret)
+            except StopIteration as exc:
+                if isinstance(exc.value, Event):
+                    return self._handle_event(exc.value)
+
+                return exc.value
+
+            ret = self._handle_event(event)
+
+    def _auth_generator(self):
+        if not self._authenticated:
+            data = {"identity": self.identity, "password": self.password}
+            resp = yield NormalRequest(
+                self.client.build_request("POST", "ajaxauth/login", data=data)
+            )
+            _raise_for_status(resp)
+
+            # If login failed, we get a JSON response with {'Login': 'Failed'}
+            resp_data = resp.json()
+            if isinstance(resp_data, Mapping):
+                if resp_data.get("Login", None) == "Failed":
+                    raise AuthenticationError()
+
+            self._authenticated = True
 
     def authenticate(self):
         """Authenticate with Space-Track.
@@ -276,20 +344,122 @@ class SpaceTrackClient:
 
             This method is called automatically when required.
         """
-        if not self._authenticated:
-            login_url = self.base_url + "ajaxauth/login"
-            data = {"identity": self.identity, "password": self.password}
-            resp = self.session.post(login_url, data=data)
+        self._run_event_generator(self._auth_generator())
 
-            _raise_for_status(resp)
+    def _generic_request_generator(
+        self,
+        class_,
+        iter_lines=False,
+        iter_content=False,
+        controller=None,
+        parse_types=False,
+        **kwargs,
+    ):
+        if iter_lines and iter_content:
+            raise ValueError("iter_lines and iter_content cannot both be True")
 
-            # If login failed, we get a JSON response with {'Login': 'Failed'}
-            resp_data = resp.json()
-            if isinstance(resp_data, Mapping):
-                if resp_data.get("Login", None) == "Failed":
-                    raise AuthenticationError()
+        if "format" in kwargs and parse_types:
+            raise ValueError("parse_types can only be used if format is unset.")
 
-            self._authenticated = True
+        if controller is None:
+            controller = self._find_controller(class_)
+        else:
+            classes = self.request_controllers.get(controller, None)
+            if classes is None:
+                raise ValueError(f"Unknown request controller {controller!r}")
+            if class_ not in classes:
+                raise ValueError(
+                    f"Unknown request class {class_!r} for controller {controller!r}"
+                )
+
+        # Decode unicode unless class == download, including conversion of
+        # CRLF newlines to LF.
+        decode = class_ != "download"
+        if not decode and iter_lines:
+            error = (
+                "iter_lines disabled for binary data, since CRLF newlines "
+                "split over chunk boundaries would yield extra blank lines. "
+                "Use iter_content=True instead."
+            )
+            raise ValueError(error)
+
+        offline_check = (class_, controller) in self.offline_predicates
+        valid_fields = {p.name for p in self.rest_predicates}
+        predicates = None
+
+        yield from self._auth_generator()
+
+        if not offline_check:
+            # Validate keyword argument names by querying valid predicates from
+            # Space-Track
+            predicates = yield from self._get_predicates_generator(class_, controller)
+            predicate_fields = {p.name for p in predicates}
+            valid_fields |= predicate_fields
+        else:
+            valid_fields |= self.offline_predicates[(class_, controller)]
+
+        url = f"{controller}/query/class/{class_}"
+
+        for key, value in kwargs.items():
+            if key not in valid_fields:
+                raise TypeError(f"'{class_}' got an unexpected argument '{key}'")
+
+            if class_ == "upload" and key == "file":
+                continue
+
+            value = quote(_stringify_predicate_value(value), safe="")
+
+            url += f"/{key}/{value}"
+
+        if class_ == "upload":
+            if "file" not in kwargs:
+                raise TypeError("missing keyword argument: 'file'")
+
+            request = self.client.build_request(
+                "POST", url, files={"file": kwargs["file"]}
+            )
+            logger.debug(request.url)
+            resp = yield from self._ratelimited_send_generator(request)
+        else:
+            request = self.client.build_request("GET", url)
+            logger.debug(request.url)
+            resp = yield from self._ratelimited_send_generator(
+                request, stream=iter_lines or iter_content
+            )
+
+        if httpx.codes.is_error(resp.status_code):
+            # If we're about to raise an error, fetch the full response in case
+            # we're streaming
+            yield ReadResponse(resp)
+
+        _raise_for_status(resp)
+
+        if resp.encoding is None:
+            resp.encoding = "UTF-8"
+
+        if iter_lines:
+            return IterLines(resp)
+        elif iter_content:
+            return IterContent(resp, decode)
+        else:
+            # If format is specified, return that format unparsed. Otherwise,
+            # parse the default JSON response.
+            if "format" in kwargs:
+                if decode:
+                    data = resp.text
+                    # Replace CRLF newlines with LF, Python will handle platform
+                    # specific newlines if written to file.
+                    data = data.replace("\r\n", "\n")
+                else:
+                    data = resp.content
+                return data
+            else:
+                data = resp.json()
+
+                if predicates is None or not parse_types:
+                    return data
+                else:
+                    return self._parse_types(data, predicates)
 
     def generic_request(
         self,
@@ -359,100 +529,16 @@ class SpaceTrackClient:
                 Passing ``format='json'`` will return the JSON **unparsed**. Do
                 not set ``format`` if you want the parsed JSON object returned!
         """
-        if iter_lines and iter_content:
-            raise ValueError("iter_lines and iter_content cannot both be True")
-
-        if "format" in kwargs and parse_types:
-            raise ValueError("parse_types can only be used if format is unset.")
-
-        if controller is None:
-            controller = self._find_controller(class_)
-        else:
-            classes = self.request_controllers.get(controller, None)
-            if classes is None:
-                raise ValueError(f"Unknown request controller {controller!r}")
-            if class_ not in classes:
-                raise ValueError(
-                    f"Unknown request class {class_!r} for controller {controller!r}"
-                )
-
-        # Decode unicode unless class == download, including conversion of
-        # CRLF newlines to LF.
-        decode = class_ != "download"
-        if not decode and iter_lines:
-            error = (
-                "iter_lines disabled for binary data, since CRLF newlines "
-                "split over chunk boundaries would yield extra blank lines. "
-                "Use iter_content=True instead."
+        return self._run_event_generator(
+            self._generic_request_generator(
+                class_=class_,
+                iter_lines=iter_lines,
+                iter_content=iter_content,
+                controller=controller,
+                parse_types=parse_types,
+                **kwargs,
             )
-            raise ValueError(error)
-
-        self.authenticate()
-
-        url = f"{self.base_url}{controller}/query/class/{class_}"
-
-        offline_check = (class_, controller) in self.offline_predicates
-        valid_fields = {p.name for p in self.rest_predicates}
-        predicates = None
-
-        if not offline_check:
-            # Validate keyword argument names by querying valid predicates from
-            # Space-Track
-            predicates = self.get_predicates(class_, controller)
-            predicate_fields = {p.name for p in predicates}
-            valid_fields |= predicate_fields
-        else:
-            valid_fields |= self.offline_predicates[(class_, controller)]
-
-        for key, value in kwargs.items():
-            if key not in valid_fields:
-                raise TypeError(f"'{class_}' got an unexpected argument '{key}'")
-
-            if class_ == "upload" and key == "file":
-                continue
-
-            value = _stringify_predicate_value(value)
-
-            url += f"/{key}/{value}"
-
-        logger.debug(requests.utils.requote_uri(url))
-
-        if class_ == "upload":
-            if "file" not in kwargs:
-                raise TypeError("missing keyword argument: 'file'")
-
-            resp = self.session.post(url, files={"file": kwargs["file"]})
-        else:
-            resp = self._ratelimited_get(url, stream=iter_lines or iter_content)
-
-        _raise_for_status(resp)
-
-        if resp.encoding is None:
-            resp.encoding = "UTF-8"
-
-        if iter_lines:
-            return _iter_lines_generator(resp, decode_unicode=decode)
-        elif iter_content:
-            return _iter_content_generator(resp, decode_unicode=decode)
-        else:
-            # If format is specified, return that format unparsed. Otherwise,
-            # parse the default JSON response.
-            if "format" in kwargs:
-                if decode:
-                    data = resp.text
-                    # Replace CRLF newlines with LF, Python will handle platform
-                    # specific newlines if written to file.
-                    data = data.replace("\r\n", "\n")
-                else:
-                    data = resp.content
-                return data
-            else:
-                data = resp.json()
-
-                if predicates is None or not parse_types:
-                    return data
-                else:
-                    return self._parse_types(data, predicates)
+        )
 
     @staticmethod
     def _parse_types(data, predicates):
@@ -465,8 +551,8 @@ class SpaceTrackClient:
 
         return data
 
-    def _ratelimited_get(self, *args, **kwargs):
-        """Perform get request, handling rate limiting."""
+    def _ratelimited_send_generator(self, request, *, stream=False):
+        """Send a request, handling rate limiting."""
         minute_limit = self._per_minute_throttle.check(self._per_minute_key, 1)
         hour_limit = self._per_hour_throttle.check(self._per_hour_key, 1)
 
@@ -479,9 +565,9 @@ class SpaceTrackClient:
             sleep_time = max(sleep_time, hour_limit.retry_after.total_seconds())
 
         if sleep_time > 0:
-            self._ratelimit_wait(sleep_time)
+            yield RateLimitWait(sleep_time)
 
-        resp = self.session.get(*args, **kwargs)
+        resp = yield NormalRequest(request, stream=stream)
 
         # It's possible that Space-Track will return HTTP status 500 with a
         # query rate limit violation. This can happen if a script is cancelled
@@ -492,16 +578,24 @@ class SpaceTrackClient:
         if resp.status_code == 500:
             # Let's only retry if the error page tells us it's a rate limit
             # violation.
+            yield ReadResponse(resp)
             if "violated your query rate limit" in resp.text:
                 # It seems that only the per-minute rate limit causes an HTTP
                 # 500 error. Breaking the per-hour limit seems to result in an
                 # email from Space-Track instead.
-                self._ratelimit_wait(
+                yield RateLimitWait(
                     self._per_minute_throttle.rate.period.total_seconds()
                 )
-                resp = self.session.get(*args, **kwargs)
+                resp = yield NormalRequest(request)
 
         return resp
+
+    def _ratelimit_callback(self, until):
+        duration = int(round(until - time.monotonic()))
+        logger.info("Rate limit reached. Sleeping for {:d} seconds.", duration)
+
+        if self.callback is not None:
+            self.callback(until)
 
     def _ratelimit_wait(self, duration):
         until = time.monotonic() + duration
@@ -537,6 +631,7 @@ class SpaceTrackClient:
     def __dir__(self):
         """Include request controllers and request classes."""
         attrs = list(self.__dict__)
+        attrs.append("base_url")  # property
         request_classes = {
             class_
             for classes in self.request_controllers.values()
@@ -561,26 +656,20 @@ class SpaceTrackClient:
         else:
             raise ValueError(f"Unknown request class {class_!r}")
 
-    def _download_predicate_data(self, class_, controller):
-        """Get raw predicate information for given request class, and cache for
-        subsequent calls.
-        """
-        self.authenticate()
+    def _download_predicate_data_generator(self, class_, controller):
+        yield from self._auth_generator()
 
-        url = f"{self.base_url}{controller}/modeldef/class/{class_}"
+        url = f"{controller}/modeldef/class/{class_}"
+        req = self.client.build_request("GET", url)
+        logger.debug(req.url)
 
-        logger.debug(requests.utils.requote_uri(url))
-
-        resp = self._ratelimited_get(url)
+        resp = yield NormalRequest(req)
 
         _raise_for_status(resp)
 
         return resp.json()["data"]
 
-    def get_predicates(self, class_, controller=None):
-        """Get full predicate information for given request class, and cache
-        for subsequent calls.
-        """
+    def _get_predicates_generator(self, class_, controller):
         if class_ not in self._predicates:
             if controller is None:
                 controller = self._find_controller(class_)
@@ -591,11 +680,20 @@ class SpaceTrackClient:
                 if class_ not in classes:
                     raise ValueError(f"Unknown request class {class_!r}")
 
-            predicates_data = self._download_predicate_data(class_, controller)
+            download = self._download_predicate_data_generator(class_, controller)
+            predicates_data = yield from download
             predicate_objects = self._parse_predicates_data(predicates_data)
             self._predicates[class_] = predicate_objects
 
         return self._predicates[class_]
+
+    def get_predicates(self, class_, controller=None):
+        """Get full predicate information for given request class, and cache
+        for subsequent calls.
+        """
+        return self._run_event_generator(
+            self._get_predicates_generator(class_, controller)
+        )
 
     def _parse_predicates_data(self, predicates_data):
         predicate_objects = []
@@ -664,6 +762,15 @@ class SpaceTrackClient:
 
         return predicate_objects
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        self.client.close()
+
     def __repr__(self):
         r = ReprHelper(self)
         r.parantheses = ("<", ">")
@@ -706,85 +813,56 @@ class _ControllerProxy:
         return self.client.get_predicates(class_=class_, controller=self.controller)
 
 
+def _iter_lines_generator(response):
+    for line in response.iter_lines():
+        yield line.rstrip("\n")
+
+
 def _iter_content_generator(response, decode_unicode):
-    """Generator used to yield 100 KiB chunks for a given response."""
-    for chunk in response.iter_content(100 * 1024, decode_unicode=decode_unicode):
+    """Generator used to yield chunks for a streamed response."""
+    if decode_unicode:
+        it = response.iter_text()
+    else:
+        it = response.iter_bytes()
+    for chunk in it:
         if decode_unicode:
             # Replace CRLF newlines with LF, Python will handle
             # platform specific newlines if written to file.
             chunk = chunk.replace("\r\n", "\n")
-            # Chunk could be ['...\r', '\n...'], stril trailing \r
+            # Chunk could be ['...\r', '\n...'], strip trailing \r
             chunk = chunk.rstrip("\r")
         yield chunk
 
 
-def _iter_lines_generator(response, decode_unicode):
-    """Iterates over the response data, one line at a time.  When
-    stream=True is set on the request, this avoids reading the
-    content at once into memory for large responses.
-
-    The function is taken from :meth:`requests.models.Response.iter_lines`, but
-    modified to use our :func:`~spacetrack.base._iter_content_generator`. This
-    is because Space-Track uses CRLF newlines, so :meth:`str.splitlines` can
-    cause us to yield blank lines if one chunk ends with CR and the next one
-    starts with LF.
-
-    .. note:: This method is not reentrant safe.
-    """
-    pending = None
-
-    for chunk in _iter_content_generator(response, decode_unicode=decode_unicode):
-        if pending is not None:
-            chunk = pending + chunk
-
-        lines = chunk.splitlines()
-
-        if lines and lines[-1] and chunk and lines[-1][-1] == chunk[-1]:
-            pending = lines.pop()
-        else:
-            pending = None
-
-        yield from lines
-
-    if pending is not None:
-        yield pending
-
-
 def _raise_for_status(response):
-    """Raises stored :class:`HTTPError`, if one occurred.
+    """Raise the `HTTPStatusError` if one occurred.
 
-    This is the :meth:`requests.models.Response.raise_for_status` method,
-    modified to add the response from Space-Track, if given.
+    This is the :meth:`httpx.Response.raise_for_status` method, modified to add
+    the response from Space-Track, if given.
     """
 
-    http_error_msg = ""
-
-    if 400 <= response.status_code < 500:
-        http_error_msg = (
-            f"{response.status_code} Client Error: {response.reason} "
-            f"for url: {response.url}"
-        )
-
-    elif 500 <= response.status_code < 600:
-        http_error_msg = (
-            f"{response.status_code} Server Error: {response.reason} "
-            f"for url: {response.url}"
-        )
-
-    if http_error_msg:
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        message = exc.args[0]
         spacetrack_error_msg = None
 
         try:
             json = response.json()
             if isinstance(json, Mapping):
                 spacetrack_error_msg = json["error"]
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, httpx.ResponseNotRead):
             pass
 
         if not spacetrack_error_msg:
-            spacetrack_error_msg = response.text
+            try:
+                spacetrack_error_msg = response.text
+            except httpx.ResponseNotRead:
+                pass
 
         if spacetrack_error_msg:
-            http_error_msg += "\nSpace-Track response:\n" + spacetrack_error_msg
+            message += "\nSpace-Track response:\n" + spacetrack_error_msg
 
-        raise requests.HTTPError(http_error_msg, response=response)
+        raise httpx.HTTPStatusError(
+            message, request=exc.request, response=exc.response
+        ) from exc

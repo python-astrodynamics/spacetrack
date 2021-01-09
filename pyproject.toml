@@ -21,11 +21,12 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
 ]
 dependencies = [
+    "httpx",
     "logbook>=0.12.3",
     "python-dateutil",
     "represent>=1.4.0",
-    "requests",
     "rush",
+    "sniffio",
 ]
 
 [project.urls]
@@ -34,12 +35,10 @@ Documentation = "https://spacetrack.readthedocs.io"
 
 [project.optional-dependencies]
 test = [
-    "pytest>=3.0",
     "pytest-asyncio",
-    "responses",
-]
-async = [
-    "aiohttp~=3.6",
+    "pytest-trio",
+    "pytest>=6.0",
+    "respx",
 ]
 docstest = [
     "doc8",

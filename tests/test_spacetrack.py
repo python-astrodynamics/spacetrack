@@ -1,11 +1,8 @@
 import datetime as dt
-import json
 from unittest.mock import Mock, call, patch
 
+import httpx
 import pytest
-import requests
-import responses
-from requests import HTTPError, Response
 from rush.quota import Quota
 
 from spacetrack import (
@@ -13,48 +10,30 @@ from spacetrack import (
     SpaceTrackClient,
     UnknownPredicateTypeWarning,
 )
-from spacetrack.base import (
-    Predicate,
-    _iter_content_generator,
-    _iter_lines_generator,
-    _raise_for_status,
-)
-
-
-def test_iter_lines_generator():
-    """Test that lines are split correctly."""
-
-    def mock_iter_content(self, chunk_size, decode_unicode):
-        for chunk in [b"1\r\n2\r\n", b"3\r", b"\n4", b"\r\n5"]:
-            if decode_unicode:
-                chunk = chunk.decode("utf-8")
-            yield chunk
-
-    with patch.object(Response, "iter_content", mock_iter_content):
-        result = list(_iter_lines_generator(response=Response(), decode_unicode=True))
-        assert result == ["1", "2", "3", "4", "5"]
+from spacetrack.base import Predicate, _iter_content_generator, _raise_for_status
 
 
 def test_iter_content_generator():
     """Test CRLF -> LF newline conversion."""
 
-    def mock_iter_content(self, chunk_size, decode_unicode):
-        for chunk in [b"1\r\n2\r\n", b"3\r", b"\n4", b"\r\n5"]:
-            if decode_unicode:
-                chunk = chunk.decode("utf-8")
-            yield chunk
+    def mock_iter_bytes():
+        yield from [b"1\r\n2\r\n", b"3\r", b"\n4", b"\r\n5"]
 
-    with patch.object(Response, "iter_content", mock_iter_content):
-        result = list(_iter_content_generator(response=Response(), decode_unicode=True))
+    def mock_iter_text():
+        for chunk in mock_iter_bytes():
+            yield chunk.decode("utf-8")
+
+    response = httpx.Response(200)
+    with patch.object(response, "iter_text", mock_iter_text):
+        result = list(_iter_content_generator(response=response, decode_unicode=True))
         assert result == ["1\n2\n", "3", "\n4", "\n5"]
 
-        result = list(
-            _iter_content_generator(response=Response(), decode_unicode=False)
-        )
+    with patch.object(response, "iter_bytes", mock_iter_bytes):
+        result = list(_iter_content_generator(response=response, decode_unicode=False))
         assert result == [b"1\r\n2\r\n", b"3\r", b"\n4", b"\r\n5"]
 
 
-def test_generic_request_exceptions():
+def test_generic_request_exceptions(mock_auth, mock_predicates_empty):
     st = SpaceTrackClient("identity", "password")
 
     with pytest.raises(ValueError):
@@ -63,18 +42,8 @@ def test_generic_request_exceptions():
     with pytest.raises(ValueError):
         st.generic_request(class_="thisclassdoesnotexist")
 
-    def mock_get_predicates(self, class_):
-        return []
-
-    patch_authenticate = patch.object(SpaceTrackClient, "authenticate")
-
-    patch_get_predicates = patch.object(
-        SpaceTrackClient, "get_predicates", mock_get_predicates
-    )
-
-    with patch_authenticate, patch_get_predicates:
-        with pytest.raises(TypeError):
-            st.generic_request("tle", madeupkeyword=None)
+    with pytest.raises(TypeError):
+        st.generic_request("tle", madeupkeyword=None)
 
     with pytest.raises(ValueError):
         st.generic_request(class_="tle", controller="nonsense")
@@ -99,11 +68,9 @@ def test_get_predicates_exceptions():
 def test_get_predicates():
     st = SpaceTrackClient("identity", "password")
 
-    patch_authenticate = patch.object(SpaceTrackClient, "authenticate")
-
     patch_get_predicates = patch.object(SpaceTrackClient, "get_predicates")
 
-    with patch_authenticate, patch_get_predicates as mock_get_predicates:
+    with patch_get_predicates as mock_get_predicates:
         st.tle.get_predicates()
         st.basicspacedata.tle.get_predicates()
         st.basicspacedata.get_predicates("tle")
@@ -121,46 +88,7 @@ def test_get_predicates():
         assert mock_get_predicates.call_args_list == expected_calls
 
 
-@responses.activate
-def test_generic_request():
-    responses.add(
-        responses.POST, "https://www.space-track.org/ajaxauth/login", json='""'
-    )
-
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/basicspacedata/modeldef/class/tle_publish",
-        json={
-            "controller": "basicspacedata",
-            "data": [
-                {
-                    "Default": "0000-00-00 00:00:00",
-                    "Extra": "",
-                    "Field": "PUBLISH_EPOCH",
-                    "Key": "",
-                    "Null": "NO",
-                    "Type": "datetime",
-                },
-                {
-                    "Default": "",
-                    "Extra": "",
-                    "Field": "TLE_LINE1",
-                    "Key": "",
-                    "Null": "NO",
-                    "Type": "char(71)",
-                },
-                {
-                    "Default": "",
-                    "Extra": "",
-                    "Field": "TLE_LINE2",
-                    "Key": "",
-                    "Null": "NO",
-                    "Type": "char(71)",
-                },
-            ],
-        },
-    )
-
+def test_generic_request(respx_mock, mock_auth, mock_tle_publish_predicates):
     tle = (
         "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927\r\n"
         "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537\r\n"
@@ -168,11 +96,8 @@ def test_generic_request():
 
     normalised_tle = tle.replace("\r\n", "\n")
 
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/basicspacedata/query/class/tle_publish"
-        "/format/tle",
-        body=tle,
+    respx_mock.get("basicspacedata/query/class/tle_publish/format/tle").respond(
+        text=tle
     )
 
     st = SpaceTrackClient("identity", "password")
@@ -185,72 +110,31 @@ def test_generic_request():
         "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537",
     ]
 
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/basicspacedata/query/class/tle_publish",
-        json={"a": 5},
-    )
+    respx_mock.get("basicspacedata/query/class/tle_publish").respond(json={"a": 5})
 
     result = st.tle_publish()
     assert result["a"] == 5
 
-    # Just use datetime to disambiguate URL from those above.
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/basicspacedata/query/class/tle_publish"
-        "/publish_epoch/1986-01-28%2016:39:13",
-        body="a" * (100 * 1024) + "b",
+    respx_mock.get("basicspacedata/query/class/tle_publish").respond(
+        stream=[b"abc", b"def"]
     )
 
-    result = list(
-        st.tle_publish(
-            iter_content=True, publish_epoch=dt.datetime(1986, 1, 28, 16, 39, 13)
-        )
-    )
+    result = list(st.tle_publish(iter_content=True))
 
-    assert result[0] == "a" * (100 * 1024)
-    assert result[1] == "b"
+    assert "".join(result) == "abcdef"
 
 
-@responses.activate
-def test_bytes_response():
-    responses.add(
-        responses.POST, "https://www.space-track.org/ajaxauth/login", json='""'
-    )
+def test_predicate_error(mock_auth, mock_predicates_empty):
+    st = SpaceTrackClient("identity", "password")
+    with pytest.raises(TypeError, match=r"unexpected argument 'banana'"):
+        st.gp(banana=4)
 
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/fileshare/modeldef/class/download",
-        json={
-            "controller": "fileshare",
-            "data": [
-                {
-                    "Default": "0",
-                    "Extra": "",
-                    "Field": "FILE_ID",
-                    "Key": "",
-                    "Null": "NO",
-                    "Type": "int(10) unsigned",
-                },
-                {
-                    "Default": None,
-                    "Extra": "",
-                    "Field": "FILE_CONTENET",
-                    "Key": "",
-                    "Null": "YES",
-                    "Type": "longblob",
-                },
-            ],
-        },
-    )
 
+def test_bytes_response(respx_mock, mock_auth, mock_download_predicates):
     data = b"bytes response \r\n"
 
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/fileshare/query/class/download" "/format/stream",
-        body=data,
-    )
+    url = "fileshare/query/class/download/format/stream"
+    respx_mock.get(url).respond(content=data)
 
     st = SpaceTrackClient("identity", "password")
     assert st.download(format="stream") == data
@@ -259,63 +143,19 @@ def test_bytes_response():
         st.download(iter_lines=True, format="stream")
 
     # Just use file_id to disambiguate URL from those above
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/fileshare/query/class/download" "/file_id/1",
-        body=b"a" * (100 * 1024) + b"b",
-    )
+    respx_mock.get(url).respond(stream=[b"abc", b"def"])
 
-    result = list(st.download(iter_content=True, file_id=1))
+    result = list(st.download(format="stream", iter_content=True))
 
-    assert result[0] == b"a" * (100 * 1024)
-    assert result[1] == b"b"
+    assert b"".join(result) == b"abcdef"
 
 
-@responses.activate
-def test_ratelimit_error():
-    responses.add(
-        responses.POST, "https://www.space-track.org/ajaxauth/login", json='""'
-    )
-
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/basicspacedata/modeldef/class/tle_publish",
-        json={
-            "controller": "basicspacedata",
-            "data": [
-                {
-                    "Default": "0000-00-00 00:00:00",
-                    "Extra": "",
-                    "Field": "PUBLISH_EPOCH",
-                    "Key": "",
-                    "Null": "NO",
-                    "Type": "datetime",
-                },
-                {
-                    "Default": "",
-                    "Extra": "",
-                    "Field": "TLE_LINE1",
-                    "Key": "",
-                    "Null": "NO",
-                    "Type": "char(71)",
-                },
-                {
-                    "Default": "",
-                    "Extra": "",
-                    "Field": "TLE_LINE2",
-                    "Key": "",
-                    "Null": "NO",
-                    "Type": "char(71)",
-                },
-            ],
-        },
-    )
-
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/basicspacedata/query/class/tle_publish",
-        status=500,
-        body="violated your query rate limit",
+def test_ratelimit_error(respx_mock, mock_auth, mock_tle_publish_predicates):
+    route = respx_mock.get("basicspacedata/query/class/tle_publish").mock(
+        side_effect=[
+            httpx.Response(500, text="violated your query rate limit"),
+            httpx.Response(200, json={"a": 1}),
+        ]
     )
 
     st = SpaceTrackClient("identity", "password")
@@ -325,60 +165,27 @@ def test_ratelimit_error():
 
     # Do it first without our own callback, then with.
 
-    # Catch the exception when URL is called a second time and still gets HTTP 500
-    with pytest.raises(HTTPError):
-        st.tle_publish()
+    assert st.tle_publish() == {"a": 1}
+    assert route.call_count == 2
+    assert route.calls[0].response.status_code == 500
 
     mock_callback = Mock()
     st.callback = mock_callback
 
-    # Catch the exception when URL is called a second time and still gets HTTP 500
-    with pytest.raises(HTTPError):
-        st.tle_publish()
+    route.reset()
+    route.side_effect = [
+        httpx.Response(500, text="violated your query rate limit"),
+        httpx.Response(200, json={"a": 1}),
+    ]
+
+    assert st.tle_publish() == {"a": 1}
+    assert route.call_count == 2
+    assert route.calls[0].response.status_code == 500
 
     assert mock_callback.call_count == 1
 
 
-@responses.activate
-def test_non_ratelimit_error():
-    responses.add(
-        responses.POST, "https://www.space-track.org/ajaxauth/login", json='""'
-    )
-
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/basicspacedata/modeldef/class/tle_publish",
-        json={
-            "controller": "basicspacedata",
-            "data": [
-                {
-                    "Default": "0000-00-00 00:00:00",
-                    "Extra": "",
-                    "Field": "PUBLISH_EPOCH",
-                    "Key": "",
-                    "Null": "NO",
-                    "Type": "datetime",
-                },
-                {
-                    "Default": "",
-                    "Extra": "",
-                    "Field": "TLE_LINE1",
-                    "Key": "",
-                    "Null": "NO",
-                    "Type": "char(71)",
-                },
-                {
-                    "Default": "",
-                    "Extra": "",
-                    "Field": "TLE_LINE2",
-                    "Key": "",
-                    "Null": "NO",
-                    "Type": "char(71)",
-                },
-            ],
-        },
-    )
-
+def test_non_ratelimit_error(respx_mock, mock_auth, mock_tle_publish_predicates):
     st = SpaceTrackClient("identity", "password")
 
     # Change ratelimiter period to speed up test
@@ -387,20 +194,16 @@ def test_non_ratelimit_error():
     mock_callback = Mock()
     st.callback = mock_callback
 
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/basicspacedata/query/class/tle_publish",
-        status=500,
-        body="some other error",
+    respx_mock.get("basicspacedata/query/class/tle_publish").respond(
+        500, text="some other error"
     )
 
-    with pytest.raises(HTTPError):
+    with pytest.raises(httpx.HTTPStatusError):
         st.tle_publish()
 
     assert not mock_callback.called
 
 
-@responses.activate
 def test_predicate_parse_modeldef():
     st = SpaceTrackClient("identity", "password")
 
@@ -521,31 +324,25 @@ def test_controller_spacetrack_methods():
                 assert mock_generic_request.call_args == expected
 
 
-@responses.activate
-def test_authenticate():
+def test_authenticate(respx_mock):
     def request_callback(request):
-        if "wrongpassword" in request.body:
-            return (200, dict(), json.dumps({"Login": "Failed"}))
-        elif "unknownresponse" in request.body:
+        if b"wrongpassword" in request.content:
+            return httpx.Response(200, json={"Login": "Failed"})
+        elif b"unknownresponse" in request.content:
             # Space-Track doesn't respond like this, but make sure anything
             # other than {'Login': 'Failed'} doesn't raise AuthenticationError
-            return (200, dict(), json.dumps({"Login": "Successful"}))
+            return httpx.Response(200, json={"Login": "Successful"})
         else:
-            return (200, dict(), json.dumps(""))
+            return httpx.Response(200, json="")
 
-    responses.add_callback(
-        responses.POST,
-        "https://www.space-track.org/ajaxauth/login",
-        callback=request_callback,
-        content_type="application/json",
-    )
+    route = respx_mock.post("ajaxauth/login").mock(side_effect=request_callback)
 
     st = SpaceTrackClient("identity", "wrongpassword")
 
     with pytest.raises(AuthenticationError):
         st.authenticate()
 
-    assert len(responses.calls) == 1
+    assert route.call_count == 1
 
     st.password = "correctpassword"
     st.authenticate()
@@ -553,56 +350,47 @@ def test_authenticate():
 
     # Check that only one login request was made since successful
     # authentication
-    assert len(responses.calls) == 2
+    assert route.call_count == 2
 
     st = SpaceTrackClient("identity", "unknownresponse")
     st.authenticate()
 
 
-@responses.activate
-def test_base_url():
-    responses.add(responses.POST, "https://example.com/ajaxauth/login", json='""')
+def test_base_url(respx_mock):
+    route = respx_mock.post("https://example.com/ajaxauth/login").respond(json='""')
     st = SpaceTrackClient("identity", "password", base_url="https://example.com")
     st.authenticate()
 
-    assert len(responses.calls) == 1
+    assert route.call_count == 1
 
 
-@responses.activate
-def test_raise_for_status():
-    responses.add(
-        responses.GET, "http://example.com/1", json={"error": "problem"}, status=400
-    )
+def test_raise_for_status(respx_mock):
+    respx_mock.get("http://example.com/1").respond(400, json={"error": "problem"})
+    respx_mock.get("http://example.com/2").respond(400, json={"wrongkey": "problem"})
+    respx_mock.get("http://example.com/3").respond(400, json="problem")
+    respx_mock.get("http://example.com/4").respond(400)
 
-    responses.add(
-        responses.GET, "http://example.com/2", json={"wrongkey": "problem"}, status=400
-    )
+    response1 = httpx.get("http://example.com/1")
+    response2 = httpx.get("http://example.com/2")
+    response3 = httpx.get("http://example.com/3")
+    response4 = httpx.get("http://example.com/4")
 
-    responses.add(responses.GET, "http://example.com/3", json="problem", status=400)
-
-    responses.add(responses.GET, "http://example.com/4", status=400)
-
-    response1 = requests.get("http://example.com/1")
-    response2 = requests.get("http://example.com/2")
-    response3 = requests.get("http://example.com/3")
-    response4 = requests.get("http://example.com/4")
-
-    with pytest.raises(HTTPError) as exc:
+    with pytest.raises(httpx.HTTPStatusError) as exc:
         _raise_for_status(response1)
     assert "Space-Track" in str(exc.value)
     assert "\nproblem" in str(exc.value)
 
-    with pytest.raises(HTTPError) as exc:
+    with pytest.raises(httpx.HTTPStatusError) as exc:
         _raise_for_status(response2)
     assert "Space-Track" in str(exc.value)
     assert '{"wrongkey": "problem"}' in str(exc.value)
 
-    with pytest.raises(HTTPError) as exc:
+    with pytest.raises(httpx.HTTPStatusError) as exc:
         _raise_for_status(response3)
     assert "Space-Track" in str(exc.value)
     assert '\n"problem"' in str(exc.value)
 
-    with pytest.raises(HTTPError) as exc:
+    with pytest.raises(httpx.HTTPStatusError) as exc:
         _raise_for_status(response4)
     assert "Space-Track" not in str(exc.value)
 
@@ -633,14 +421,7 @@ def test_repr():
 
 def test_dir():
     st = SpaceTrackClient("hello@example.com", "mypassword")
-    assert dir(st) == [
-        "_authenticated",
-        "_controller_proxies",
-        "_per_hour_key",
-        "_per_hour_throttle",
-        "_per_minute_key",
-        "_per_minute_throttle",
-        "_predicates",
+    assert [s for s in dir(st) if not s.startswith("_")] == [
         "announcement",
         "base_url",
         "basicspacedata",
@@ -649,6 +430,7 @@ def test_dir():
         "car",
         "cdm",
         "cdm_public",
+        "client",
         "decay",
         "delete",
         "download",
@@ -670,7 +452,6 @@ def test_dir():
         "satcat_change",
         "satcat_debut",
         "satellite",
-        "session",
         "spephemeris",
         "tip",
         "tle",
@@ -699,15 +480,8 @@ def test_predicate_parse_type(predicate, input, output):
     assert predicate.parse(input) == output
 
 
-@responses.activate
-def test_parse_types():
-    responses.add(
-        responses.POST, "https://www.space-track.org/ajaxauth/login", json='""'
-    )
-
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/basicspacedata/modeldef/class/tle_publish",
+def test_parse_types(respx_mock, mock_auth):
+    respx_mock.get("basicspacedata/modeldef/class/tle_publish").respond(
         json={
             "controller": "basicspacedata",
             "data": [
@@ -747,9 +521,7 @@ def test_parse_types():
         },
     )
 
-    responses.add(
-        responses.GET,
-        "https://www.space-track.org/basicspacedata/query/class/tle_publish",
+    respx_mock.get("basicspacedata/query/class/tle_publish").respond(
         json=[
             {
                 # Test a type that is parsed.
