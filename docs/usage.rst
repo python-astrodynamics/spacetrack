@@ -87,7 +87,7 @@ The same example is shown below synchronously and asynchronously.
         st = AsyncSpaceTrackClient(identity='user@example.com',
                                    password='password')
 
-        with st:
+        async with st:
             data = await st.tle_latest(
                 iter_lines=True, ordinal=1, epoch='>now-30',
                 mean_motion=op.inclusive_range(0.99, 1.01),
