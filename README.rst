@@ -32,7 +32,7 @@ Example
    ...                             dt.datetime(2016, 6, 27))
 
    >>> # Streaming downloads line by line
-   >>> lines = st.tle(iter_lines=True, publish_epoch=drange, orderby='TLE_LINE1', format='tle')
+   >>> lines = st.tle_publish(iter_lines=True, publish_epoch=drange, orderby='TLE_LINE1', format='tle')
    >>> with open('tle.txt', 'w') as fp:
    ...     for line in lines:
    ...         fp.write(line)
@@ -44,7 +44,7 @@ Example
    ...         fp.write(chunk)
 
    >>> # Parameter checking, using Space-Track's modeldef API
-   >>> st.tle_latest(onrad_cat_id=25544)
+   >>> st.tle_latest(norad_cat_id=25544)
    TypeError: 'tle_latest' got an unexpected argument 'onrad_cat_id'
 
    >>> # Automatic rate limiting
