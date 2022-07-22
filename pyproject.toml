@@ -45,10 +45,8 @@ async = [
 docstest = [
     "doc8",
     "parver",
-    "pyenchant",
     "sphinx",
     "sphinx_rtd_theme",
-    "sphinxcontrib-spelling",
 ]
 pep8test = [
     "flake8",
