@@ -64,3 +64,9 @@ source = ["spacetrack", ".tox/*/lib/python*/site-packages/spacetrack"]
 [tool.coverage.report]
 precision = 1
 exclude_lines = ["pragma: no cover", "pass"]
+
+[tool.isort]
+profile = "black"
+known_first_party = "spacetrack"
+skip = ["build"]
+default_section = "THIRDPARTY"
