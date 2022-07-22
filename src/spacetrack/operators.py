@@ -4,33 +4,32 @@ from collections.abc import Sequence
 
 def greater_than(value):
     """``'>value'``."""
-    return '>' + _stringify_predicate_value(value)
+    return ">" + _stringify_predicate_value(value)
 
 
 def less_than(value):
     """``'<value'``."""
-    return '<' + _stringify_predicate_value(value)
+    return "<" + _stringify_predicate_value(value)
 
 
 def not_equal(value):
     """``'<>value'``."""
-    return '<>' + _stringify_predicate_value(value)
+    return "<>" + _stringify_predicate_value(value)
 
 
 def inclusive_range(left, right):
     """``'left--right'``."""
-    return (_stringify_predicate_value(left) + '--' +
-            _stringify_predicate_value(right))
+    return _stringify_predicate_value(left) + "--" + _stringify_predicate_value(right)
 
 
 def like(value):
     """``'~~value'``."""
-    return '~~' + _stringify_predicate_value(value)
+    return "~~" + _stringify_predicate_value(value)
 
 
 def startswith(value):
     """``'^value'``."""
-    return '^' + _stringify_predicate_value(value)
+    return "^" + _stringify_predicate_value(value)
 
 
 def _stringify_predicate_value(value):
@@ -44,12 +43,12 @@ def _stringify_predicate_value(value):
     if isinstance(value, bool):
         return str(value).lower()
     elif isinstance(value, Sequence) and not isinstance(value, str):
-        return ','.join(_stringify_predicate_value(x) for x in value)
+        return ",".join(_stringify_predicate_value(x) for x in value)
     elif isinstance(value, datetime.datetime):
-        return value.isoformat(sep=' ')
+        return value.isoformat(sep=" ")
     elif isinstance(value, datetime.date):
         return value.isoformat()
     elif value is None:
-        return 'null-val'
+        return "null-val"
     else:
         return str(value)

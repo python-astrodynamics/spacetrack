@@ -35,6 +35,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
         :class:`aiohttp.ClientSession` instance.
     """
+
     @staticmethod
     def _create_session():
         # Use requests/certifi CA file
@@ -44,15 +45,15 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
     async def _ratelimit_callback(self, until):
         duration = int(round(until - time.time()))
-        logger.info('Rate limit reached. Sleeping for {:d} seconds.', duration)
+        logger.info("Rate limit reached. Sleeping for {:d} seconds.", duration)
 
         if self.callback is not None:
             await self.callback(until)
 
     async def authenticate(self):
         if not self._authenticated:
-            login_url = self.base_url + 'ajaxauth/login'
-            data = {'identity': self.identity, 'password': self.password}
+            login_url = self.base_url + "ajaxauth/login"
+            data = {"identity": self.identity, "password": self.password}
             resp = await self.session.post(login_url, data=data)
 
             await _raise_for_status(resp)
@@ -60,13 +61,20 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             # If login failed, we get a JSON response with {'Login': 'Failed'}
             resp_data = await resp.json()
             if isinstance(resp_data, Mapping):
-                if resp_data.get('Login', None) == 'Failed':
+                if resp_data.get("Login", None) == "Failed":
                     raise AuthenticationError()
 
             self._authenticated = True
 
-    async def generic_request(self, class_, iter_lines=False, iter_content=False,
-                              controller=None, parse_types=False, **kwargs):
+    async def generic_request(
+        self,
+        class_,
+        iter_lines=False,
+        iter_content=False,
+        controller=None,
+        parse_types=False,
+        **kwargs,
+    ):
         """Generic Space-Track query coroutine.
 
         The request class methods use this method internally; the public
@@ -127,35 +135,36 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                 not set ``format`` if you want the parsed JSON object returned!
         """
         if iter_lines and iter_content:
-            raise ValueError('iter_lines and iter_content cannot both be True')
+            raise ValueError("iter_lines and iter_content cannot both be True")
 
-        if 'format' in kwargs and parse_types:
-            raise ValueError('parse_types can only be used if format is unset.')
+        if "format" in kwargs and parse_types:
+            raise ValueError("parse_types can only be used if format is unset.")
 
         if controller is None:
             controller = self._find_controller(class_)
         else:
             classes = self.request_controllers.get(controller, None)
             if classes is None:
-                raise ValueError(
-                    f'Unknown request controller {controller!r}')
+                raise ValueError(f"Unknown request controller {controller!r}")
             if class_ not in classes:
                 raise ValueError(
-                    f'Unknown request class {class_!r} for controller {controller!r}')
+                    f"Unknown request class {class_!r} for controller {controller!r}"
+                )
 
         # Decode unicode unless class == download, including conversion of
         # CRLF newlines to LF.
-        decode = (class_ != 'download')
+        decode = class_ != "download"
         if not decode and iter_lines:
             error = (
-                'iter_lines disabled for binary data, since CRLF newlines '
-                'split over chunk boundaries would yield extra blank lines. '
-                'Use iter_content=True instead.')
+                "iter_lines disabled for binary data, since CRLF newlines "
+                "split over chunk boundaries would yield extra blank lines. "
+                "Use iter_content=True instead."
+            )
             raise ValueError(error)
 
         await self.authenticate()
 
-        url = f'{self.base_url}{controller}/query/class/{class_}'
+        url = f"{self.base_url}{controller}/query/class/{class_}"
 
         offline_check = (class_, controller) in self.offline_predicates
         valid_fields = {p.name for p in self.rest_predicates}
@@ -170,12 +179,11 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
         for key, value in kwargs.items():
             if key not in valid_fields:
-                raise TypeError(
-                    f"'{class_}' got an unexpected argument '{key}'")
+                raise TypeError(f"'{class_}' got an unexpected argument '{key}'")
 
             value = _stringify_predicate_value(value)
 
-            url += f'/{key}/{value}'
+            url += f"/{key}/{value}"
 
         logger.debug(url)
 
@@ -190,12 +198,12 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         else:
             # If format is specified, return that format unparsed. Otherwise,
             # parse the default JSON response.
-            if 'format' in kwargs:
+            if "format" in kwargs:
                 if decode:
                     # Replace CRLF newlines with LF, Python will handle platform
                     # specific newlines if written to file.
                     data = await resp.text()
-                    data = data.replace('\r', '')
+                    data = data.replace("\r", "")
                 else:
                     data = await resp.read()
                 return data
@@ -235,7 +243,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
             # Let's only retry if the error page tells us it's a rate limit
             # violation.in
-            if 'violated your query rate limit' in text:
+            if "violated your query rate limit" in text:
                 # It seems that only the per-minute rate limit causes an HTTP
                 # 500 error. Breaking the per-hour limit seems to result in an
                 # email from Space-Track instead.
@@ -255,14 +263,14 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         """
         await self.authenticate()
 
-        url = f'{self.base_url}{controller}/modeldef/class/{class_}'
+        url = f"{self.base_url}{controller}/modeldef/class/{class_}"
 
         resp = await self._ratelimited_get(url)
 
         await _raise_for_status(resp)
 
         resp_json = await resp.json()
-        return resp_json['data']
+        return resp_json["data"]
 
     async def get_predicates(self, class_, controller=None):
         """Get full predicate information for given request class, and cache
@@ -274,14 +282,11 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             else:
                 classes = self.request_controllers.get(controller, None)
                 if classes is None:
-                    raise ValueError(
-                        f'Unknown request controller {controller!r}')
+                    raise ValueError(f"Unknown request controller {controller!r}")
                 if class_ not in classes:
-                    raise ValueError(
-                        f'Unknown request class {class_!r}')
+                    raise ValueError(f"Unknown request class {class_!r}")
 
-            predicates_data = await self._download_predicate_data(
-                class_, controller)
+            predicates_data = await self._download_predicate_data(class_, controller)
             predicate_objects = self._parse_predicates_data(predicates_data)
             self._predicates[class_] = predicate_objects
 
@@ -305,31 +310,31 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
 
 def get_encoding(response):
-    ctype = response.headers.get('content-type', '').lower()
+    ctype = response.headers.get("content-type", "").lower()
     mimetype = parse_mimetype(ctype)
 
     # Fallback to UTF-8
-    return mimetype.parameters.get('charset', 'UTF-8')
+    return mimetype.parameters.get("charset", "UTF-8")
 
 
 async def _iter_content_generator(response, decode_unicode):
     encoding = None
 
     if decode_unicode:
-        ctype = response.headers.get('content-type', '').lower()
+        ctype = response.headers.get("content-type", "").lower()
         mimetype = parse_mimetype(ctype)
 
         # Fallback to UTF-8
-        encoding = mimetype.parameters.get('charset', 'UTF-8')
+        encoding = mimetype.parameters.get("charset", "UTF-8")
 
     async for chunk in response.content.iter_chunked(100 * 1024):
         if decode_unicode:
             chunk = chunk.decode(encoding)
             # Replace CRLF newlines with LF, Python will handle
             # platform specific newlines if written to file.
-            chunk = chunk.replace('\r\n', '\n')
+            chunk = chunk.replace("\r\n", "\n")
             # Chunk could be ['...\r', '\n...'], strip trailing \r
-            chunk = chunk.rstrip('\r')
+            chunk = chunk.rstrip("\r")
         yield chunk
 
 
@@ -372,7 +377,7 @@ async def _raise_for_status(response):
         try:
             json = await response.json()
             if isinstance(json, Mapping):
-                spacetrack_error_msg = json['error']
+                spacetrack_error_msg = json["error"]
         except (ValueError, KeyError, aiohttp.ClientResponseError):
             pass
 
@@ -380,11 +385,12 @@ async def _raise_for_status(response):
             spacetrack_error_msg = await response.text()
 
         if spacetrack_error_msg:
-            reason += '\nSpace-Track response:\n' + spacetrack_error_msg
+            reason += "\nSpace-Track response:\n" + spacetrack_error_msg
 
         raise aiohttp.ClientResponseError(
             response.request_info,
             response.history,
             status=response.status,
             message=reason,
-            headers=response.headers)
+            headers=response.headers,
+        )
