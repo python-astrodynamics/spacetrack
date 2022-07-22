@@ -1,4 +1,3 @@
-include .coveragerc
 include CHANGELOG.md
 include conftest.py
 include LICENSE.txt
