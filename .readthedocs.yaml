@@ -5,6 +5,7 @@ python:
     - path: .
       extra_requirements:
         - async
+        - docstest
 
 build:
   os: ubuntu-22.04
