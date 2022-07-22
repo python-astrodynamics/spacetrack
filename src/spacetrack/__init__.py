@@ -13,11 +13,3 @@ __all__ = (
     'SpaceTrackClient',
     'startswith',
 )
-
-__version__ = '0.16.0'
-__description__ = 'Python client for space-track.org'
-
-__license__ = 'MIT'
-
-__author__ = 'Frazer McLean'
-__email__ = 'frazer@frazermclean.co.uk'
