@@ -9,10 +9,10 @@
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
-from importlib.metadata import distribution
 import os
 import re
 import sys
+from importlib.metadata import distribution
 
 import sphinx_rtd_theme
 from parver import Version

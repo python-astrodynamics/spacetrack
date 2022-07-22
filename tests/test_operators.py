@@ -1,6 +1,7 @@
 import datetime as dt
 
 import pytest
+
 import spacetrack.operators as op
 from spacetrack.operators import _stringify_predicate_value
 
