@@ -1,7 +1,6 @@
 -e .[async,test,docstest,pep8test]
 coverage==4.4.1
 plumbum==1.6.3
-shovel==0.3.0
 tox==2.7.0
 twine==1.8.1
 watchdog==0.8.3
