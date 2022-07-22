@@ -3,6 +3,7 @@ from unittest.mock import call, patch
 
 import httpx
 import pytest
+import pytest_asyncio
 from rush.quota import Quota
 
 from spacetrack import AsyncSpaceTrackClient
@@ -19,7 +20,7 @@ def async_runner(request):
     return request.param
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client():
     async with AsyncSpaceTrackClient("identity", "password") as st:
         yield st
