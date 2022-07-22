@@ -1,7 +1,16 @@
 from .base import (  # noqa
-    AuthenticationError, SpaceTrackClient, UnknownPredicateTypeWarning)
+    AuthenticationError,
+    SpaceTrackClient,
+    UnknownPredicateTypeWarning,
+)
 from .operators import (  # noqa
-    greater_than, inclusive_range, less_than, like, not_equal, startswith)
+    greater_than,
+    inclusive_range,
+    less_than,
+    like,
+    not_equal,
+    startswith,
+)
 
 __all__ = (
     'AuthenticationError',

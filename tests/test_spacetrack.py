@@ -7,11 +7,18 @@ import requests
 import responses
 from requests import HTTPError, Response
 from rush.quota import Quota
+
 from spacetrack import (
-    AuthenticationError, SpaceTrackClient, UnknownPredicateTypeWarning)
+    AuthenticationError,
+    SpaceTrackClient,
+    UnknownPredicateTypeWarning,
+)
 from spacetrack.base import (
-    Predicate, _iter_content_generator, _iter_lines_generator,
-    _raise_for_status)
+    Predicate,
+    _iter_content_generator,
+    _iter_lines_generator,
+    _raise_for_status,
+)
 
 
 def test_iter_lines_generator():

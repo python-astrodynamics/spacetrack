@@ -3,18 +3,18 @@ import threading
 import time
 import warnings
 import weakref
-from collections.abc import Mapping
 from collections import OrderedDict
+from collections.abc import Mapping
 from functools import partial
 
 import requests
 from dateutil.parser import isoparse
 from logbook import Logger
 from represent import ReprHelper, ReprHelperMixin
-from rush.quota import Quota
-from rush.throttle import Throttle
 from rush.limiters.periodic import PeriodicLimiter
+from rush.quota import Quota
 from rush.stores.dictionary import DictionaryStore as RushDictionaryStore
+from rush.throttle import Throttle
 
 from .operators import _stringify_predicate_value
 

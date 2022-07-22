@@ -1,13 +1,17 @@
+import asyncio
 from unittest.mock import Mock, patch
 
-import asyncio
 import pytest
 from aiohttp import ClientResponse
 from aiohttp.helpers import TimerNoop
+from yarl import URL
+
 from spacetrack import AuthenticationError
 from spacetrack.aio import (
-    AsyncSpaceTrackClient, _iter_content_generator, _iter_lines_generator)
-from yarl import URL
+    AsyncSpaceTrackClient,
+    _iter_content_generator,
+    _iter_lines_generator,
+)
 
 ST_URL = URL('https://www.space-track.org')
 
