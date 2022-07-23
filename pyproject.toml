@@ -55,9 +55,10 @@ pep8test = [
 [tool.coverage.run]
 branch = true
 source = ["spacetrack", "tests/"]
+parallel = true
 
 [tool.coverage.paths]
-source = ["spacetrack", ".tox/*/lib/python*/site-packages/spacetrack"]
+source = ["src", ".tox/*/site-packages"]
 
 [tool.coverage.report]
 precision = 1
