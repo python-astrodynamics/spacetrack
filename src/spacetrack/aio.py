@@ -20,8 +20,6 @@ from .base import (
 class AsyncSpaceTrackClient(SpaceTrackClient):
     """Asynchronous SpaceTrack client class.
 
-    This class should be considered experimental.
-
     It must be closed by calling
     :meth:`~spacetrack.aio.AsyncSpaceTrackClient.close`. Alternatively,
     instances of this class can be used as an async context manager.
