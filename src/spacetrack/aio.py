@@ -25,7 +25,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
     instances of this class can be used as an async context manager.
 
     Refer to the :class:`~spacetrack.base.SpaceTrackClient` documentation for
-    more information.
+    more information. Note that if passed, the ``httpx_client`` parameter must
+    be an ``httpx.AsyncClient``.
     """
 
     def __init__(
@@ -39,6 +40,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
     ):
         if httpx_client is None:
             httpx_client = httpx.AsyncClient()
+        elif not isinstance(httpx_client, httpx.AsyncClient):
+            raise TypeError("httpx_client must be an httpx.AsyncClient instance")
         super().__init__(
             identity=identity,
             password=password,

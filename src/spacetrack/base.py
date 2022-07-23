@@ -129,6 +129,10 @@ class SpaceTrackClient:
             follow rate limits from multiple instances.
         rush_key_prefix: You may choose a prefix for the keys that will be
             stored in `rush_store`, e.g. to avoid conflicts in a redis db.
+        httpx_client: Provide a custom ``httpx.Client` instance.
+            ``SpaceTrackClient`` takes ownership of the httpx client. You should
+            only provide your own client if you need to configure it first (e.g.
+            for a proxy).
 
     For more information, refer to the `Space-Track documentation`_.
 
