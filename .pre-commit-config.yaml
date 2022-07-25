@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.4.0
+    rev: v4.3.0
     hooks:
       - id: check-toml
       - id: check-yaml
@@ -14,11 +14,11 @@ repos:
     hooks:
       - id: prettier
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.29.0
+    rev: v2.37.2
     hooks:
       - id: pyupgrade
         args: [--py37-plus]
-  - repo: https://github.com/timothycrosley/isort
+  - repo: https://github.com/PyCQA/isort
     rev: 5.10.1
     hooks:
       - id: isort
@@ -34,6 +34,6 @@ repos:
       - id: doc8
         exclude: README\.rst
   - repo: https://github.com/psf/black
-    rev: 22.3.0
+    rev: 22.6.0
     hooks:
       - id: black
