@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61", "wheel"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -19,13 +19,16 @@ classifiers = [
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
+    "httpx",
     "logbook>=0.12.3",
     "python-dateutil",
     "represent>=1.4.0",
-    "requests",
     "rush",
+    "sniffio",
 ]
 
 [project.urls]
@@ -34,18 +37,16 @@ Documentation = "https://spacetrack.readthedocs.io"
 
 [project.optional-dependencies]
 test = [
-    "pytest>=3.0",
     "pytest-asyncio",
-    "responses",
-]
-async = [
-    "aiohttp~=3.6",
+    "pytest-trio",
+    "pytest>=6.0",
+    "respx",
 ]
 docstest = [
     "doc8",
     "parver",
     "sphinx",
-    "sphinx_rtd_theme",
+    "furo",
 ]
 pep8test = [
     "flake8",
@@ -56,16 +57,14 @@ pep8test = [
 [tool.coverage.run]
 branch = true
 source = ["spacetrack", "tests/"]
+parallel = true
 
 [tool.coverage.paths]
-source = ["spacetrack", ".tox/*/lib/python*/site-packages/spacetrack"]
+source = ["src/spacetrack", ".tox/**/site-packages/spacetrack"]
 
 [tool.coverage.report]
 precision = 1
-exclude_lines = ["pragma: no cover", "pass"]
+exclude_lines = ["pragma: no cover", "^\\s*pass\\s*$"]
 
 [tool.isort]
 profile = "black"
-known_first_party = "spacetrack"
-skip = ["build"]
-default_section = "THIRDPARTY"

@@ -1,3 +1,4 @@
+from .aio import AsyncSpaceTrackClient  # noqa
 from .base import (  # noqa
     AuthenticationError,
     SpaceTrackClient,
@@ -13,12 +14,13 @@ from .operators import (  # noqa
 )
 
 __all__ = (
+    "AsyncSpaceTrackClient",
     "AuthenticationError",
+    "SpaceTrackClient",
     "greater_than",
     "inclusive_range",
     "less_than",
     "like",
     "not_equal",
-    "SpaceTrackClient",
     "startswith",
 )

@@ -1,38 +1,82 @@
-cache:
-  paths:
-    - pip_cache
+stages:
+  - test
+  - report
 
-before_script:
-  - export PIP_CACHE_DIR="pip_cache"
-  - pip install .[test]
+variables:
+  PIP_CACHE_DIR: .cache/pip
+  PRE_COMMIT_HOME: .cache/pre-commit
+  TOX_TESTENV_PASSENV: PIP_CACHE_DIR
 
-test:2.7:
-  image: python:2.7
-  script:
-    - pytest
+.pipcache:
+  cache:
+    key: pip
+    paths:
+      - $PIP_CACHE_DIR
 
-test:3.3:
-  image: python:3.3
-  script:
-    - pytest
-
-test:3.4:
-  image: python:3.4
-  script:
-    - pytest
-
-test:3.5:
-  image: python:3.5
+pytest:
+  extends: .pipcache
+  stage: test
+  image: python:$PYTHON_VERSION
+  variables:
+    TOXENV: $TOXENV
   before_script:
-    - export PIP_CACHE_DIR="pip_cache"
-    - pip install .[test,async]
+    - pip install -U pip setuptools wheel
+    - pip install -U virtualenv tox
   script:
-    - pytest
+    - tox -- -v --junitxml=junit.xml
+  artifacts:
+    when: always
+    paths:
+      - .coverage.*
+    reports:
+      junit: junit.xml
+  parallel:
+    matrix:
+      - PYTHON_VERSION: "3.7"
+        TOXENV: py37
+      - PYTHON_VERSION: "3.8"
+        TOXENV: py38
+      - PYTHON_VERSION: "3.9"
+        TOXENV: py39
+      - PYTHON_VERSION: "3.10"
+        TOXENV: py310
+      - PYTHON_VERSION: "3.11"
+        TOXENV: py311
 
-test:3.6:
-  image: python:3.6
+pre-commit:
+  stage: test
+  image: python:3.11
   before_script:
-    - export PIP_CACHE_DIR="pip_cache"
-    - pip install .[test,async]
+    - pip install pre-commit
   script:
+    - pre-commit run --all-files
+  cache:
+    key: pre-commit
+    paths:
+      - $PIP_CACHE_DIR
+      - $PRE_COMMIT_HOME
+
+coverage:
+  extends: .pipcache
+  stage: report
+  image: python:3.11
+  before_script:
+    - pip install -U pip setuptools wheel
+    - pip install -U coverage[toml]
+  script:
+    - coverage combine
+    - coverage report
+    - coverage html
+    - coverage xml
+  when: always
+  artifacts:
+    name: coverage-${CI_COMMIT_SHORT_SHA}
+    expose_as: Coverage Report
+    paths:
+      - htmlcov
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+  needs:
     - pytest

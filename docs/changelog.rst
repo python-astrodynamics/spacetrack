@@ -4,7 +4,32 @@ Change Log
 Unreleased_
 -----------
 
-N/A
+Added
+~~~~~
+
+- :class:`~spacetrack.aio.AsyncSpaceTrackClient` supports Trio_ in addition to
+  asyncio.
+
+.. _Trio: https://trio.readthedocs.io/en/stable/
+
+Changed
+~~~~~~~
+
+- The sync and async clients share the same sans-io core.
+- The underlying HTTP library used is now httpx_ (formerly ``requests`` for
+  :class:`~spacetrack.base.SpaceTrackClient` and ``aiohttp`` for
+  :class:`~spacetrack.aio.AsyncSpaceTrackClient`). Users will need to change
+  any exception handling to catch `httpx exceptions`_.
+
+.. _httpx: https://www.python-httpx.org
+.. _`httpx exceptions`: https://www.python-httpx.org/exceptions/
+
+Removed
+~~~~~~~
+
+- The ``async`` extra no longer exists because the
+  :class:`~spacetrack.aio.AsyncSpaceTrackClient` is available by default.
+- **Support for Python 3.6**
 
 0.16.0_ - 2021-01-03
 --------------------
@@ -15,7 +40,7 @@ Added
 -  Support for the `car`, `folder`, and `satellite` classes.
 - A `rush storage backend`_ can be provided to a new ``rush_store`` argument to
   coordinate rate limiting across multiple instances.
-- ``rush_key_prefix`` to optionally prefix keys used in the rust storage
+- ``rush_key_prefix`` to optionally prefix keys used in the rush storage
   backend.
 
 .. _`rush storage backend`: https://rush.readthedocs.io/en/stable/storage.html

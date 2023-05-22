@@ -1,166 +1,66 @@
-import asyncio
-from unittest.mock import Mock, patch
+import sys
+from unittest.mock import call, patch
 
+import httpx
 import pytest
-from aiohttp import ClientResponse
-from aiohttp.helpers import TimerNoop
-from yarl import URL
+import pytest_asyncio
+from rush.quota import Quota
 
-from spacetrack import AuthenticationError
-from spacetrack.aio import (
-    AsyncSpaceTrackClient,
-    _iter_content_generator,
-    _iter_lines_generator,
+from spacetrack import AsyncSpaceTrackClient
+from spacetrack.aio import _iter_content_generator
+
+
+@pytest.fixture(
+    params=[
+        pytest.param("asyncio", marks=pytest.mark.asyncio),
+        pytest.param("trio", marks=pytest.mark.trio),
+    ]
 )
-
-ST_URL = URL("https://www.space-track.org")
-
-
-@pytest.mark.asyncio
-async def test_authenticate():
-    st = AsyncSpaceTrackClient("identity", "wrongpassword")
-
-    loop = asyncio.get_event_loop()
-    response = ClientResponse(
-        "post",
-        ST_URL / "ajaxauth/login",
-        request_info=Mock(),
-        writer=Mock(),
-        continue100=None,
-        timer=TimerNoop(),
-        traces=[],
-        loop=loop,
-        session=st.session,
-    )
-
-    response.status = 200
-    response.json = Mock()
-
-    async def mock_post(url, data):
-        response.json.return_value = asyncio.Future()
-        if data["password"] == "wrongpassword":
-            response.json.return_value.set_result({"Login": "Failed"})
-        elif data["password"] == "unknownresponse":
-            # Space-Track doesn't respond like this, but make sure anything
-            # other than {'Login': 'Failed'} doesn't raise AuthenticationError
-            response.json.return_value.set_result({"Login": "Successful"})
-        else:
-            response.json.return_value.set_result("")
-        return response
-
-    async with st:
-        with patch.object(st.session, "post", mock_post):
-            with pytest.raises(AuthenticationError):
-                await st.authenticate()
-
-            assert response.json.call_count == 1
-
-            st.password = "password"
-            await st.authenticate()
-
-            # This shouldn't make a HTTP request since we're already authenticated.
-            await st.authenticate()
-
-    assert response.json.call_count == 2
-
-    st = AsyncSpaceTrackClient("identity", "unknownresponse")
-
-    async with st:
-        with patch.object(st.session, "post", mock_post):
-            await st.authenticate()
-
-    response.close()
+def async_runner(request):
+    return request.param
 
 
-@pytest.mark.asyncio
-async def test_generic_request_exceptions():
-    st = AsyncSpaceTrackClient("identity", "password")
-
-    with pytest.raises(ValueError):
-        await st.generic_request(class_="tle", iter_lines=True, iter_content=True)
-
-    with pytest.raises(ValueError):
-        await st.generic_request(class_="thisclassdoesnotexist")
-
-    def mock_authenticate(self):
-        result = asyncio.Future()
-        result.set_result(None)
-        return result
-
-    def mock_get_predicates(self, class_):
-        result = asyncio.Future()
-        result.set_result([])
-        return result
-
-    patch_authenticate = patch.object(
-        AsyncSpaceTrackClient, "authenticate", mock_authenticate
-    )
-
-    patch_get_predicates = patch.object(
-        AsyncSpaceTrackClient, "get_predicates", mock_get_predicates
-    )
-
-    with patch_authenticate, patch_get_predicates:
-        with pytest.raises(TypeError):
-            await st.generic_request("tle", madeupkeyword=None)
-
-    await st.close()
+@pytest_asyncio.fixture
+async def client():
+    async with AsyncSpaceTrackClient("identity", "password") as st:
+        yield st
 
 
-@pytest.mark.asyncio
-async def test_generic_request():
-    def mock_authenticate(self):
-        result = asyncio.Future()
-        result.set_result(None)
-        return result
+async def test_authenticate(client, async_runner, mock_auth):
+    await client.authenticate()
 
-    def mock_download_predicate_data(self, class_, controller=None):
-        result = asyncio.Future()
-        data = [
-            {
-                "Default": "0000-00-00 00:00:00",
-                "Extra": "",
-                "Field": "PUBLISH_EPOCH",
-                "Key": "",
-                "Null": "NO",
-                "Type": "datetime",
-            },
-            {
-                "Default": "",
-                "Extra": "",
-                "Field": "TLE_LINE1",
-                "Key": "",
-                "Null": "NO",
-                "Type": "char(71)",
-            },
-            {
-                "Default": "",
-                "Extra": "",
-                "Field": "TLE_LINE2",
-                "Key": "",
-                "Null": "NO",
-                "Type": "char(71)",
-            },
+
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="Requires Python 3.8+")
+async def test_get_predicates_calls(async_runner, client):
+    patch_get_predicates = patch.object(client, "get_predicates")
+
+    with patch_get_predicates as mock_get_predicates:
+        await client.tle.get_predicates()
+        await client.basicspacedata.tle.get_predicates()
+        await client.basicspacedata.get_predicates("tle")
+        await client.get_predicates("tle")
+        await client.get_predicates("tle", "basicspacedata")
+
+        expected_calls = [
+            call(class_="tle", controller="basicspacedata"),
+            call(class_="tle", controller="basicspacedata"),
+            call(class_="tle", controller="basicspacedata"),
+            call("tle"),
+            call("tle", "basicspacedata"),
         ]
 
-        result.set_result(data)
-        return result
+        assert mock_get_predicates.await_args_list == expected_calls
 
-    st = AsyncSpaceTrackClient("identity", "password")
 
-    loop = asyncio.get_event_loop()
-    response = ClientResponse(
-        "get",
-        ST_URL / "basicspacedata/query/class/tle_publish/format/tle",
-        request_info=Mock(),
-        writer=Mock(),
-        continue100=None,
-        timer=TimerNoop(),
-        traces=[],
-        loop=loop,
-        session=st.session,
-    )
+async def test_get_predicates(
+    async_runner, client, mock_auth, mock_tle_publish_predicates
+):
+    assert len(await client.tle_publish.get_predicates()) == 3
 
+
+async def test_generic_request(
+    client, async_runner, respx_mock, mock_auth, mock_tle_publish_predicates
+):
     tle = (
         "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927\r\n"
         "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537\r\n"
@@ -168,123 +68,83 @@ async def test_generic_request():
 
     normalised_tle = tle.replace("\r\n", "\n")
 
-    response.status = 200
-    response.text = Mock()
-
-    response.text.return_value = asyncio.Future()
-    response.text.return_value.set_result(tle)
-
-    mock_get = asyncio.Future()
-    mock_get.set_result(response)
-
-    patch_authenticate = patch.object(
-        AsyncSpaceTrackClient, "authenticate", mock_authenticate
+    respx_mock.get("basicspacedata/query/class/tle_publish/format/tle").respond(
+        text=tle
     )
 
-    patch_download_predicate_data = patch.object(
-        AsyncSpaceTrackClient, "_download_predicate_data", mock_download_predicate_data
-    )
+    assert await client.tle_publish(format="tle") == normalised_tle
 
-    patch_get = patch.object(st.session, "get", return_value=mock_get)
+    respx_mock.get("basicspacedata/query/class/tle_publish").respond(json={"a": 5})
 
-    with patch_authenticate, patch_download_predicate_data, patch_get:
-        assert await st.tle_publish(format="tle") == normalised_tle
-
-    response.close()
-    response = ClientResponse(
-        "get",
-        ST_URL / "basicspacedata/query/class/tle_publish",
-        request_info=Mock(),
-        writer=Mock(),
-        continue100=None,
-        timer=TimerNoop(),
-        traces=[],
-        loop=loop,
-        session=st.session,
-    )
-
-    response.status = 200
-    response.json = Mock()
-    response.json.return_value = asyncio.Future()
-    response.json.return_value.set_result({"a": 5})
-
-    mock_get = asyncio.Future()
-    mock_get.set_result(response)
-
-    patch_get = patch.object(st.session, "get", return_value=mock_get)
-
-    with patch_authenticate, patch_download_predicate_data, patch_get:
-        result = await st.tle_publish()
-        assert result["a"] == 5
-
-    response.close()
-
-    await st.close()
+    result = await client.tle_publish()
+    assert result["a"] == 5
 
 
-@pytest.mark.asyncio
-async def test_iter_lines_generator():
-    """Test that lines are split correctly."""
-
-    async def mock_iter_content(n):
-        for chunk in [b"1\r\n2\r\n", b"3\r", b"\n4", b"\r\n5"]:
-            yield chunk
-
-    response = ClientResponse(
-        "get",
-        ST_URL,
-        request_info=Mock(),
-        writer=Mock(),
-        continue100=None,
-        timer=TimerNoop(),
-        traces=[],
-        loop=Mock(),
-        session=Mock(),
-    )
-    response._headers = {"Content-Type": "application/json;charset=utf-8"}
-    with patch.object(response, "content", Mock(iter_chunked=mock_iter_content)):
-        result = [
-            line
-            async for line in _iter_lines_generator(
-                response=response, decode_unicode=True
-            )
-        ]
-        assert result == ["1", "2", "3", "4", "5"]
-
-
-@pytest.mark.asyncio
-async def test_iter_content_generator():
+async def test_iter_content_generator(async_runner):
     """Test CRLF -> LF newline conversion."""
 
-    async def mock_iter_content(n):
+    async def mock_aiter_bytes():
         for chunk in [b"1\r\n2\r\n", b"3\r", b"\n4", b"\r\n5"]:
             yield chunk
 
-    response = ClientResponse(
-        "get",
-        ST_URL,
-        request_info=Mock(),
-        writer=Mock(),
-        continue100=None,
-        timer=TimerNoop(),
-        traces=[],
-        loop=Mock(),
-        session=Mock(),
-    )
-    response._headers = {"Content-Type": "application/json;charset=utf-8"}
-    with patch.object(response, "content", Mock(iter_chunked=mock_iter_content)):
+    async def mock_aiter_text():
+        async for chunk in mock_aiter_bytes():
+            yield chunk.decode("utf-8")
+
+    response = httpx.Response(200)
+    with patch.object(response, "aiter_text", mock_aiter_text):
         result = [
-            line
-            async for line in _iter_content_generator(
+            c
+            async for c in _iter_content_generator(
                 response=response, decode_unicode=True
             )
         ]
         assert result == ["1\n2\n", "3", "\n4", "\n5"]
 
+    with patch.object(response, "aiter_bytes", mock_aiter_bytes):
         result = [
-            line
-            async for line in _iter_content_generator(
+            c
+            async for c in _iter_content_generator(
                 response=response, decode_unicode=False
             )
         ]
         assert result == [b"1\r\n2\r\n", b"3\r", b"\n4", b"\r\n5"]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="Requires Python 3.8+")
+async def test_ratelimit_error(
+    async_runner, client, respx_mock, mock_auth, mock_tle_publish_predicates
+):
+    from unittest.mock import AsyncMock
+
+    route = respx_mock.get("basicspacedata/query/class/tle_publish").mock(
+        side_effect=[
+            httpx.Response(500, text="violated your query rate limit"),
+            httpx.Response(200, json={"a": 1}),
+        ]
+    )
+
+    # Change ratelimiter period to speed up test
+    client._per_minute_throttle.rate = Quota.per_second(30)
+
+    # Do it first without our own callback, then with.
+
+    assert await client.tle_publish() == {"a": 1}
+    assert route.call_count == 2
+    assert route.calls[0].response.status_code == 500
+
+    mock_callback = AsyncMock()
+    client.callback = mock_callback
+
+    route.reset()
+    route.side_effect = [
+        httpx.Response(500, text="violated your query rate limit"),
+        httpx.Response(200, json={"a": 1}),
+    ]
+
+    assert await client.tle_publish() == {"a": 1}
+    assert route.call_count == 2
+    assert route.calls[0].response.status_code == 500
+
+    assert mock_callback.call_count == 1
+    mock_callback.assert_awaited()

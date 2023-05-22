@@ -1,70 +1,96 @@
 import asyncio
-import ssl
 import time
-from collections.abc import Mapping
 
-import aiohttp
-import aiohttp.web_exceptions
-import requests.certs
-from aiohttp.helpers import parse_mimetype
+import httpx
+import sniffio
 
-from .base import AuthenticationError, SpaceTrackClient, logger
-from .operators import _stringify_predicate_value
+from .base import (
+    BASE_URL,
+    Event,
+    IterContent,
+    IterLines,
+    NormalRequest,
+    RateLimitWait,
+    ReadResponse,
+    SpaceTrackClient,
+    logger,
+)
 
 
 class AsyncSpaceTrackClient(SpaceTrackClient):
     """Asynchronous SpaceTrack client class.
 
-    This class should be considered experimental.
-
     It must be closed by calling
     :meth:`~spacetrack.aio.AsyncSpaceTrackClient.close`. Alternatively,
-    instances of this class can be used as a context manager.
+    instances of this class can be used as an async context manager.
 
-    Parameters:
-        identity: Space-Track username.
-        password: Space-Track password.
-        base_url: May be overridden to use e.g. https://testing.space-track.org/
-
-    For more information, refer to the `Space-Track documentation`_.
-
-    .. _`Space-Track documentation`: https://www.space-track.org/documentation
-        #api-requestClasses
-
-    .. attribute:: session
-
-        :class:`aiohttp.ClientSession` instance.
+    Refer to the :class:`~spacetrack.base.SpaceTrackClient` documentation for
+    more information. Note that if passed, the ``httpx_client`` parameter must
+    be an ``httpx.AsyncClient``.
     """
 
-    @staticmethod
-    def _create_session():
-        # Use requests/certifi CA file
-        ctx = ssl.create_default_context(cafile=requests.certs.where())
-        connector = aiohttp.TCPConnector(ssl=ctx)
-        return aiohttp.ClientSession(connector=connector)
+    def __init__(
+        self,
+        identity,
+        password,
+        base_url=BASE_URL,
+        rush_store=None,
+        rush_key_prefix="",
+        httpx_client=None,
+    ):
+        if httpx_client is None:
+            httpx_client = httpx.AsyncClient()
+        elif not isinstance(httpx_client, httpx.AsyncClient):
+            raise TypeError("httpx_client must be an httpx.AsyncClient instance")
+        super().__init__(
+            identity=identity,
+            password=password,
+            base_url=base_url,
+            rush_store=rush_store,
+            rush_key_prefix=rush_key_prefix,
+            httpx_client=httpx_client,
+        )
 
-    async def _ratelimit_callback(self, until):
-        duration = int(round(until - time.time()))
-        logger.info("Rate limit reached. Sleeping for {:d} seconds.", duration)
+    async def _handle_event(self, event):
+        if isinstance(event, NormalRequest):
+            return await self.client.send(event.request)
+        elif isinstance(event, ReadResponse):
+            return await event.response.aread()
+        elif isinstance(event, IterLines):
+            return _iter_lines_generator(event.response)
+        elif isinstance(event, IterContent):
+            return _iter_content_generator(event.response, event.decode)
+        elif isinstance(event, RateLimitWait):
+            await self._ratelimit_wait(event.duration)
+        else:
+            raise RuntimeError(f"Unknown event type: {type(event)}")
 
-        if self.callback is not None:
-            await self.callback(until)
+    async def _run_event_generator(self, g):
+        # Start generator by sending in None
+        ret = None
+
+        while True:
+            try:
+                event = g.send(ret)
+            except StopIteration as exc:
+                if isinstance(exc.value, Event):
+                    return await self._handle_event(exc.value)
+
+                return exc.value
+
+            ret = await self._handle_event(event)
 
     async def authenticate(self):
-        if not self._authenticated:
-            login_url = self.base_url + "ajaxauth/login"
-            data = {"identity": self.identity, "password": self.password}
-            resp = await self.session.post(login_url, data=data)
+        """Authenticate with Space-Track.
 
-            await _raise_for_status(resp)
+        Raises:
+            spacetrack.base.AuthenticationError: Incorrect login details.
 
-            # If login failed, we get a JSON response with {'Login': 'Failed'}
-            resp_data = await resp.json()
-            if isinstance(resp_data, Mapping):
-                if resp_data.get("Login", None) == "Failed":
-                    raise AuthenticationError()
+        .. note::
 
-            self._authenticated = True
+            This method is called automatically when required.
+        """
+        await self._run_event_generator(self._auth_generator())
 
     async def generic_request(
         self,
@@ -75,31 +101,31 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         parse_types=False,
         **kwargs,
     ):
-        """Generic Space-Track query coroutine.
+        r"""Generic Space-Track query.
 
         The request class methods use this method internally; the public
         API is as follows:
 
         .. code-block:: python
 
-            st.tle_publish(*args, **st)
-            st.basicspacedata.tle_publish(*args, **st)
-            st.file(*args, **st)
-            st.fileshare.file(*args, **st)
-            st.spephemeris.file(*args, **st)
+            st.tle_publish(*args, **kw)
+            st.basicspacedata.tle_publish(*args, **kw)
+            st.file(*args, **kw)
+            st.fileshare.file(*args, **kw)
+            st.spephemeris.file(*args, **kw)
 
         They resolve to the following calls respectively:
 
         .. code-block:: python
 
-            st.generic_request('tle_publish', *args, **st)
-            st.generic_request('tle_publish', *args, controller='basicspacedata', **st)
-            st.generic_request('file', *args, **st)
-            st.generic_request('file', *args, controller='fileshare', **st)
-            st.generic_request('file', *args, controller='spephemeris', **st)
+            st.generic_request('tle_publish', *args, **kw)
+            st.generic_request('tle_publish', *args, controller='basicspacedata', **kw)
+            st.generic_request('file', *args, **kw)
+            st.generic_request('file', *args, controller='fileshare', **kw)
+            st.generic_request('file', *args, controller='spephemeris', **kw)
 
         Parameters:
-            class_: Space-Track request class name
+            class\_: Space-Track request class name
             iter_lines: Yield result line by line
             iter_content: Yield result in 100 KiB chunks.
             controller: Optionally specify request controller to use.
@@ -112,10 +138,10 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
                 .. code-block:: python
 
-                    spacetrack = AsyncSpaceTrackClient(...)
-                    await spacetrack.tle.get_predicates()
+                    spacetrack = SpaceTrackClient(...)
+                    spacetrack.tle.get_predicates()
                     # or
-                    await spacetrack.get_predicates('tle')
+                    spacetrack.get_predicates('tle')
 
                 See :func:`~spacetrack.operators._stringify_predicate_value` for
                 which Python objects are converted appropriately.
@@ -134,163 +160,51 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                 Passing ``format='json'`` will return the JSON **unparsed**. Do
                 not set ``format`` if you want the parsed JSON object returned!
         """
-        if iter_lines and iter_content:
-            raise ValueError("iter_lines and iter_content cannot both be True")
-
-        if "format" in kwargs and parse_types:
-            raise ValueError("parse_types can only be used if format is unset.")
-
-        if controller is None:
-            controller = self._find_controller(class_)
-        else:
-            classes = self.request_controllers.get(controller, None)
-            if classes is None:
-                raise ValueError(f"Unknown request controller {controller!r}")
-            if class_ not in classes:
-                raise ValueError(
-                    f"Unknown request class {class_!r} for controller {controller!r}"
-                )
-
-        # Decode unicode unless class == download, including conversion of
-        # CRLF newlines to LF.
-        decode = class_ != "download"
-        if not decode and iter_lines:
-            error = (
-                "iter_lines disabled for binary data, since CRLF newlines "
-                "split over chunk boundaries would yield extra blank lines. "
-                "Use iter_content=True instead."
+        return await self._run_event_generator(
+            self._generic_request_generator(
+                class_=class_,
+                iter_lines=iter_lines,
+                iter_content=iter_content,
+                controller=controller,
+                parse_types=parse_types,
+                **kwargs,
             )
-            raise ValueError(error)
+        )
 
-        await self.authenticate()
+    async def _ratelimit_callback(self, until):
+        duration = int(round(until - time.monotonic()))
+        logger.info("Rate limit reached. Sleeping for {:d} seconds.", duration)
 
-        url = f"{self.base_url}{controller}/query/class/{class_}"
-
-        offline_check = (class_, controller) in self.offline_predicates
-        valid_fields = {p.name for p in self.rest_predicates}
-        predicates = None
-
-        if not offline_check:
-            predicates = await self.get_predicates(class_)
-            predicate_fields = {p.name for p in predicates}
-            valid_fields = predicate_fields | {p.name for p in self.rest_predicates}
-        else:
-            valid_fields |= self.offline_predicates[(class_, controller)]
-
-        for key, value in kwargs.items():
-            if key not in valid_fields:
-                raise TypeError(f"'{class_}' got an unexpected argument '{key}'")
-
-            value = _stringify_predicate_value(value)
-
-            url += f"/{key}/{value}"
-
-        logger.debug(url)
-
-        resp = await self._ratelimited_get(url)
-
-        await _raise_for_status(resp)
-
-        if iter_lines:
-            return _iter_lines_generator(resp, decode_unicode=decode)
-        elif iter_content:
-            return _iter_content_generator(resp, decode_unicode=decode)
-        else:
-            # If format is specified, return that format unparsed. Otherwise,
-            # parse the default JSON response.
-            if "format" in kwargs:
-                if decode:
-                    # Replace CRLF newlines with LF, Python will handle platform
-                    # specific newlines if written to file.
-                    data = await resp.text()
-                    data = data.replace("\r", "")
-                else:
-                    data = await resp.read()
-                return data
-            else:
-                data = await resp.json()
-
-                if predicates is None or not parse_types:
-                    return data
-                else:
-                    return self._parse_types(data, predicates)
-
-    async def _ratelimited_get(self, *args, **kwargs):
-        minute_limit = self._per_minute_throttle.check(self._per_minute_key, 1)
-        hour_limit = self._per_hour_throttle.check(self._per_hour_key, 1)
-
-        sleep_time = 0
-
-        if minute_limit.limited:
-            sleep_time = minute_limit.retry_after.total_seconds()
-
-        if hour_limit.limited:
-            sleep_time = max(sleep_time, hour_limit.retry_after.total_seconds())
-
-        if sleep_time > 0:
-            await self._ratelimit_wait(sleep_time)
-
-        resp = await self.session.get(*args, **kwargs)
-
-        # It's possible that Space-Track will return HTTP status 500 with a
-        # query rate limit violation. This can happen if a script is cancelled
-        # before it has finished sleeping to satisfy the rate limit and it is
-        # started again.
-        #
-        # Let's catch this specific instance and retry once if it happens.
-        if resp.status == 500:
-            text = await resp.text()
-
-            # Let's only retry if the error page tells us it's a rate limit
-            # violation.in
-            if "violated your query rate limit" in text:
-                # It seems that only the per-minute rate limit causes an HTTP
-                # 500 error. Breaking the per-hour limit seems to result in an
-                # email from Space-Track instead.
-                await self._ratelimit_wait(60)
-                resp = await self.session.get(*args, **kwargs)
-
-        return resp
+        if self.callback is not None:
+            await self.callback(until)
 
     async def _ratelimit_wait(self, duration):
+        async_library = sniffio.current_async_library()
+        if async_library == "asyncio":
+            await self._ratelimit_wait_asyncio(duration)
+        elif async_library == "trio":
+            await self._ratelimit_wait_trio(duration)
+
+    async def _ratelimit_wait_asyncio(self, duration):
         until = time.monotonic() + duration
         asyncio.ensure_future(self._ratelimit_callback(until))
         await asyncio.sleep(duration)
 
-    async def _download_predicate_data(self, class_, controller):
-        """Get raw predicate information for given request class, and cache for
-        subsequent calls.
-        """
-        await self.authenticate()
+    async def _ratelimit_wait_trio(self, duration):
+        import trio
 
-        url = f"{self.base_url}{controller}/modeldef/class/{class_}"
-
-        resp = await self._ratelimited_get(url)
-
-        await _raise_for_status(resp)
-
-        resp_json = await resp.json()
-        return resp_json["data"]
+        until = time.monotonic() + duration
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(self._ratelimit_callback, until)
+            nursery.start_soon(trio.sleep, duration)
 
     async def get_predicates(self, class_, controller=None):
         """Get full predicate information for given request class, and cache
         for subsequent calls.
         """
-        if class_ not in self._predicates:
-            if controller is None:
-                controller = self._find_controller(class_)
-            else:
-                classes = self.request_controllers.get(controller, None)
-                if classes is None:
-                    raise ValueError(f"Unknown request controller {controller!r}")
-                if class_ not in classes:
-                    raise ValueError(f"Unknown request class {class_!r}")
-
-            predicates_data = await self._download_predicate_data(class_, controller)
-            predicate_objects = self._parse_predicates_data(predicates_data)
-            self._predicates[class_] = predicate_objects
-
-        return self._predicates[class_]
+        return await self._run_event_generator(
+            self._get_predicates_generator(class_, controller)
+        )
 
     def __enter__(self):
         raise TypeError("Use async with instead")
@@ -306,91 +220,25 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
     async def close(self):
         """Close aiohttp session."""
-        await self.session.close()
+        await self.client.aclose()
 
 
-def get_encoding(response):
-    ctype = response.headers.get("content-type", "").lower()
-    mimetype = parse_mimetype(ctype)
-
-    # Fallback to UTF-8
-    return mimetype.parameters.get("charset", "UTF-8")
+async def _iter_lines_generator(response):
+    async for line in response.aiter_lines():
+        yield line.rstrip("\n")
 
 
 async def _iter_content_generator(response, decode_unicode):
-    encoding = None
-
+    """Generator used to yield 100 KiB chunks for a given response."""
     if decode_unicode:
-        ctype = response.headers.get("content-type", "").lower()
-        mimetype = parse_mimetype(ctype)
-
-        # Fallback to UTF-8
-        encoding = mimetype.parameters.get("charset", "UTF-8")
-
-    async for chunk in response.content.iter_chunked(100 * 1024):
+        it = response.aiter_text()
+    else:
+        it = response.aiter_bytes()
+    async for chunk in it:
         if decode_unicode:
-            chunk = chunk.decode(encoding)
             # Replace CRLF newlines with LF, Python will handle
             # platform specific newlines if written to file.
             chunk = chunk.replace("\r\n", "\n")
             # Chunk could be ['...\r', '\n...'], strip trailing \r
             chunk = chunk.rstrip("\r")
         yield chunk
-
-
-async def _iter_lines_generator(response, decode_unicode):
-    pending = None
-    async for chunk in _iter_content_generator(response, decode_unicode):
-        if pending is not None:
-            chunk = pending + chunk
-
-        lines = chunk.splitlines()
-
-        if lines and lines[-1] and chunk and lines[-1][-1] == chunk[-1]:
-            pending = lines.pop()
-        else:
-            pending = None
-
-        for line in lines:
-            yield line
-
-    if pending is not None:
-        yield pending
-
-
-async def _raise_for_status(response):
-    """Raise an appropriate error for a given response.
-
-    Arguments:
-      response (:py:class:`aiohttp.ClientResponse`): The API response.
-
-    Raises:
-      :py:class:`aiohttp.ClientResponseError`: The appropriate
-        error for the response's status.
-    """
-
-    if 400 <= response.status:
-        reason = response.reason
-
-        spacetrack_error_msg = None
-
-        try:
-            json = await response.json()
-            if isinstance(json, Mapping):
-                spacetrack_error_msg = json["error"]
-        except (ValueError, KeyError, aiohttp.ClientResponseError):
-            pass
-
-        if not spacetrack_error_msg:
-            spacetrack_error_msg = await response.text()
-
-        if spacetrack_error_msg:
-            reason += "\nSpace-Track response:\n" + spacetrack_error_msg
-
-        raise aiohttp.ClientResponseError(
-            response.request_info,
-            response.history,
-            status=response.status,
-            message=reason,
-            headers=response.headers,
-        )

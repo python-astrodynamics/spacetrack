@@ -4,7 +4,6 @@ python:
   install:
     - path: .
       extra_requirements:
-        - async
         - docstest
 
 build:
