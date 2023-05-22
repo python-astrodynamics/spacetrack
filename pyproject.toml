@@ -46,7 +46,7 @@ docstest = [
     "doc8",
     "parver",
     "sphinx",
-    "sphinx_rtd_theme",
+    "furo",
 ]
 pep8test = [
     "flake8",

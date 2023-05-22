@@ -11,12 +11,6 @@ pip
 
     $ pip install spacetrack
 
-To install with :mod:`asyncio` support, install the async extra:
-
-.. code:: bash
-
-    $ pip install spacetrack[async]
-
 Git
 ===
 
