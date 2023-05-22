@@ -68,6 +68,3 @@ exclude_lines = ["pragma: no cover", "^\\s*pass\\s*$"]
 
 [tool.isort]
 profile = "black"
-known_first_party = "spacetrack"
-skip = ["build"]
-default_section = "THIRDPARTY"
