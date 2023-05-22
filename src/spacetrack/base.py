@@ -734,7 +734,6 @@ def _iter_lines_generator(response, decode_unicode):
     pending = None
 
     for chunk in _iter_content_generator(response, decode_unicode=decode_unicode):
-
         if pending is not None:
             chunk = pending + chunk
 
