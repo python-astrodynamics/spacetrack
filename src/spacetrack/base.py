@@ -221,6 +221,7 @@ class SpaceTrackClient:
     # List of (class, controller) tuples for
     # requests which do not return a modeldef
     offline_predicates = {
+        ("download", "fileshare"): {"file_id", "folder_id", "recursive"},
         ("upload", "fileshare"): {"folder_id", "file"},
         ("download", "spephemeris"): set(),
     }
