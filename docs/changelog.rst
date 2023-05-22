@@ -31,6 +31,12 @@ Removed
   :class:`~spacetrack.aio.AsyncSpaceTrackClient` is available by default.
 - **Support for Python 3.6**
 
+Fixed
+~~~~~
+
+- The modeldef for the fileshare/download class was deprecated by Space-Track,
+  so the client no longer uses this API.
+
 0.16.0_ - 2021-01-03
 --------------------
 
