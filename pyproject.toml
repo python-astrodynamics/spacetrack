@@ -60,7 +60,7 @@ source = ["spacetrack", "tests/"]
 parallel = true
 
 [tool.coverage.paths]
-source = ["src", ".tox/*/site-packages"]
+source = ["src/spacetrack", ".tox/**/site-packages/spacetrack"]
 
 [tool.coverage.report]
 precision = 1
