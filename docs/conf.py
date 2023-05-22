@@ -15,7 +15,7 @@ dist = distribution("spacetrack")
 
 _release = Version.parse(dist.version)
 # Truncate release to x.y
-_version = Version(release=_release.release[:2])
+_version = Version(release=_release.release[:2]).truncate(min_length=3)
 
 author_email = dist.metadata["Author-email"]
 author, _ = re.match(r"(.*) <(.*)>", author_email).groups()
@@ -25,7 +25,7 @@ copyright = f"2023, {author}"
 
 # The full version, including alpha/beta/rc tags
 release = str(_release)
-# The short X.Y version.
+# The short X.Y.Z version matching the git tags
 version = str(_version)
 
 html_title = f"{project} {release}"
