@@ -53,7 +53,10 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
     async def _handle_event(self, event):
         if isinstance(event, NormalRequest):
-            return await self.client.send(event.request)
+            return await self.client.send(
+                event.request,
+                stream=event.stream,
+            )
         elif isinstance(event, ReadResponse):
             return await event.response.aread()
         elif isinstance(event, IterLines):
