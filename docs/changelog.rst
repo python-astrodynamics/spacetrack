@@ -4,6 +4,11 @@ Change Log
 Unreleased_
 -----------
 
+N/A
+
+1.0.1_ - 2023-05-23
+-------------------
+
 Fixed
 ~~~~~
 
@@ -12,7 +17,7 @@ Fixed
 - requests which need to follow redirects work again.
 
 1.0.0_ - 2023-05-22
---------------------
+-------------------
 
 Added
 ~~~~~
@@ -289,7 +294,8 @@ Changed
 
 First release.
 
-.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/1.0.0...HEAD
+.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/1.0.1...HEAD
+.. _1.0.1: https://github.com/python-astrodynamics/spacetrack/compare/1.0.0...1.0.1
 .. _1.0.0: https://github.com/python-astrodynamics/spacetrack/compare/0.16.0...1.0.0
 .. _0.16.0: https://github.com/python-astrodynamics/spacetrack/compare/0.15.0...0.16.0
 .. _0.15.0: https://github.com/python-astrodynamics/spacetrack/compare/0.14.0...0.15.0
