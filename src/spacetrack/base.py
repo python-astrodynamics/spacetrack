@@ -54,6 +54,7 @@ class Event:
 class NormalRequest(Event):
     request = attr.ib()
     stream = attr.ib(default=False)
+    follow_redirects = attr.ib(default=False)
 
 
 @attr.s(slots=True)
@@ -298,6 +299,7 @@ class SpaceTrackClient:
         if isinstance(event, NormalRequest):
             return self.client.send(
                 event.request,
+                follow_redirects=event.follow_redirects,
                 stream=event.stream,
             )
         elif isinstance(event, ReadResponse):
@@ -575,7 +577,7 @@ class SpaceTrackClient:
         if sleep_time > 0:
             yield RateLimitWait(sleep_time)
 
-        req_event = NormalRequest(request, stream=stream)
+        req_event = NormalRequest(request, stream=stream, follow_redirects=True)
         resp = yield req_event
 
         # It's possible that Space-Track will return HTTP status 500 with a

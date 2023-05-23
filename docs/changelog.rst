@@ -9,6 +9,7 @@ Fixed
 
 - requests which should have been streamed (e.g. ``iter_content=True``) were
   not.
+- requests which need to follow redirects work again.
 
 1.0.0_ - 2023-05-22
 --------------------
