@@ -55,6 +55,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         if isinstance(event, NormalRequest):
             return await self.client.send(
                 event.request,
+                follow_redirects=event.follow_redirects,
                 stream=event.stream,
             )
         elif isinstance(event, ReadResponse):
