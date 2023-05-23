@@ -296,7 +296,10 @@ class SpaceTrackClient:
 
     def _handle_event(self, event):
         if isinstance(event, NormalRequest):
-            return self.client.send(event.request)
+            return self.client.send(
+                event.request,
+                stream=event.stream,
+            )
         elif isinstance(event, ReadResponse):
             return event.response.read()
         elif isinstance(event, IterLines):
@@ -572,7 +575,8 @@ class SpaceTrackClient:
         if sleep_time > 0:
             yield RateLimitWait(sleep_time)
 
-        resp = yield NormalRequest(request, stream=stream)
+        req_event = NormalRequest(request, stream=stream)
+        resp = yield req_event
 
         # It's possible that Space-Track will return HTTP status 500 with a
         # query rate limit violation. This can happen if a script is cancelled
@@ -591,7 +595,7 @@ class SpaceTrackClient:
                 yield RateLimitWait(
                     self._per_minute_throttle.rate.period.total_seconds()
                 )
-                resp = yield NormalRequest(request)
+                resp = yield req_event
 
         return resp
 

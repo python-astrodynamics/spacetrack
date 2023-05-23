@@ -4,7 +4,11 @@ Change Log
 Unreleased_
 -----------
 
-N/A
+Fixed
+~~~~~
+
+- requests which should have been streamed (e.g. ``iter_content=True``) were
+  not.
 
 1.0.0_ - 2023-05-22
 --------------------
