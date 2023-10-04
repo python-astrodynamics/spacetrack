@@ -54,6 +54,12 @@ pep8test = [
     "pep8-naming",
 ]
 
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.coverage.run]
 branch = true
 source = ["spacetrack", "tests/"]
