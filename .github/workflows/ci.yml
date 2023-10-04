@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - uses: "actions/checkout@v4"
-      - uses: "actions/setup-python@v3"
+      - uses: "actions/setup-python@v4"
         with:
           python-version: "${{ matrix.python-version }}"
       - name: "Install dependencies"
@@ -47,7 +47,7 @@ jobs:
 
     steps:
       - uses: "actions/checkout@v4"
-      - uses: "actions/setup-python@v3"
+      - uses: "actions/setup-python@v4"
         with:
           # Use latest Python, so it understands all syntax.
           python-version: "3.11"
