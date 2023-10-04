@@ -1,16 +1,17 @@
 import re
+import sys
 import threading
 import time
 import warnings
 import weakref
 from collections import OrderedDict
 from collections.abc import Mapping
+from datetime import datetime
 from functools import partial
 from urllib.parse import quote
 
 import attr
 import httpx
-from dateutil.parser import isoparse
 from logbook import Logger
 from represent import ReprHelper, ReprHelperMixin
 from rush.limiters.periodic import PeriodicLimiter
@@ -19,6 +20,11 @@ from rush.stores.dictionary import DictionaryStore as RushDictionaryStore
 from rush.throttle import Throttle
 
 from .operators import _stringify_predicate_value
+
+if sys.version_info >= (3, 11):
+    isoparse = datetime.fromisoformat
+else:
+    from dateutil.parser import isoparse
 
 logger = Logger("spacetrack")
 
