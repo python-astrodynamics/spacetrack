@@ -12,7 +12,7 @@ N/A
 Added
 ~~~~~
 
-- `dirs` and `download` request classes for the `publicfiles` request
+- ``dirs`` and ``download`` request classes for the ``publicfiles`` request
   controller.
 - Support for Python 3.12
 
