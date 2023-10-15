@@ -433,6 +433,7 @@ def test_dir():
         "client",
         "decay",
         "delete",
+        "dirs",
         "download",
         "expandedspacedata",
         "file",
@@ -448,6 +449,7 @@ def test_dir():
         "omm",
         "organization",
         "password",
+        "publicfiles",
         "satcat",
         "satcat_change",
         "satcat_debut",
@@ -547,3 +549,17 @@ def test_parse_types(respx_mock, mock_auth):
         st.tle_publish(format="tle", parse_types=True)
 
     assert "parse_types" in exc_info.value.args[0]
+
+
+def test_params(respx_mock, mock_auth):
+    data = b"hello\n"
+    respx_mock.get(
+        "publicfiles/query/class/download", params={"name": "filename.txt"}
+    ).respond(
+        content=data,
+    )
+
+    with SpaceTrackClient("identity", "password") as st:
+        result = st.publicfiles.download(name="filename.txt", iter_content=True)
+
+    assert b"".join(result) == data

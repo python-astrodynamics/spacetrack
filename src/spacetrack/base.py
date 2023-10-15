@@ -181,6 +181,7 @@ class SpaceTrackClient:
             "expandedspacedata",
             "fileshare",
             "spephemeris",
+            "publicfiles",
         ]
     )
 
@@ -225,12 +226,22 @@ class SpaceTrackClient:
         "file_history",
     }
 
+    request_controllers["publicfiles"] = {
+        "dirs",
+        "download",
+    }
+
     # List of (class, controller) tuples for
     # requests which do not return a modeldef
     offline_predicates = {
         ("download", "fileshare"): {"file_id", "folder_id", "recursive"},
         ("upload", "fileshare"): {"folder_id", "file"},
         ("download", "spephemeris"): set(),
+        ("dirs", "publicfiles"): set(),
+        ("download", "publicfiles"): set(),
+    }
+    param_fields = {
+        ("download", "publicfiles"): {"name"},
     }
 
     # These predicates are available for every request class.
@@ -414,17 +425,23 @@ class SpaceTrackClient:
         else:
             valid_fields |= self.offline_predicates[(class_, controller)]
 
+        valid_params = self.param_fields.get((class_, controller), set())
+        params = dict()
+
         url = f"{controller}/query/class/{class_}"
 
         for key, value in kwargs.items():
-            if key not in valid_fields:
+            if key not in valid_fields | valid_params:
                 raise TypeError(f"'{class_}' got an unexpected argument '{key}'")
 
             if class_ == "upload" and key == "file":
                 continue
 
-            value = quote(_stringify_predicate_value(value), safe="")
+            if key in valid_params:
+                params[key] = value
+                continue
 
+            value = quote(_stringify_predicate_value(value), safe="")
             url += f"/{key}/{value}"
 
         if class_ == "upload":
@@ -432,12 +449,15 @@ class SpaceTrackClient:
                 raise TypeError("missing keyword argument: 'file'")
 
             request = self.client.build_request(
-                "POST", url, files={"file": kwargs["file"]}
+                "POST",
+                url,
+                files={"file": kwargs["file"]},
+                params=params,
             )
             logger.debug(request.url)
             resp = yield from self._ratelimited_send_generator(request)
         else:
-            request = self.client.build_request("GET", url)
+            request = self.client.build_request("GET", url, params=params)
             logger.debug(request.url)
             resp = yield from self._ratelimited_send_generator(
                 request, stream=iter_lines or iter_content
