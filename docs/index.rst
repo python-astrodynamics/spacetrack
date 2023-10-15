@@ -3,9 +3,11 @@
 spacetrack documentation
 ========================
 
-``spacetrack`` is a Python client for Space-Track, with methods for all request
-classes, keyword validation for request predicates, streaming download
+``spacetrack`` is a Python client for `Space-Track`_, with methods for all
+request classes, keyword validation for request predicates, streaming download
 support, and automatic rate limiting.
+
+.. _`Space-Track`: https://www.space-track.org/
 
 Contents:
 
