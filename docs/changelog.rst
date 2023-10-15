@@ -6,6 +6,23 @@ Unreleased_
 
 N/A
 
+1.1.0_ - 2023-10-15
+-------------------
+
+Added
+~~~~~
+
+- `dirs` and `download` request classes for the `publicfiles` request
+  controller.
+- Support for Python 3.12
+
+
+Removed
+~~~~~~~
+
+- **Support for Python 3.7**
+
+
 1.0.1_ - 2023-05-23
 -------------------
 
@@ -294,7 +311,8 @@ Changed
 
 First release.
 
-.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/1.0.1...HEAD
+.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/1.1.0...HEAD
+.. _1.1.0: https://github.com/python-astrodynamics/spacetrack/compare/1.0.1...1.1.0
 .. _1.0.1: https://github.com/python-astrodynamics/spacetrack/compare/1.0.0...1.0.1
 .. _1.0.0: https://github.com/python-astrodynamics/spacetrack/compare/0.16.0...1.0.0
 .. _0.16.0: https://github.com/python-astrodynamics/spacetrack/compare/0.15.0...0.16.0
