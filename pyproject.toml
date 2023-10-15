@@ -7,7 +7,7 @@ name = "spacetrack"
 version = "1.0.1"
 description = "Python client for space-track.org"
 readme = "README.rst"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 license = { text = "MIT" }
 authors = [
     { name = "Frazer McLean", email = "frazer@frazermclean.co.uk" },
@@ -16,16 +16,16 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
     "httpx",
     "logbook>=0.12.3",
-    "python-dateutil",
+    "python-dateutil; python_version < '3.11'",
     "represent>=1.4.0",
     "rush",
     "sniffio",
@@ -53,6 +53,12 @@ pep8test = [
     "flake8-future-import",
     "pep8-naming",
 ]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.coverage.run]
 branch = true
