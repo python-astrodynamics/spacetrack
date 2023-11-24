@@ -128,9 +128,8 @@ The client will ensure that no more than 19 HTTP requests are sent per minute
 by sleeping if the rate exceeds this. This will be logged to the spacetrack
 module's logger. You can register a callback with the
 :class:`~spacetrack.base.SpaceTrackClient` or
-:class:`~spacetrack.aio.AsyncSpaceTrackClient` classes. It will be passed the
-time that the module is sleeping until, in seconds since the epoch (as with
-:func:`time.time`).
+:class:`~spacetrack.aio.AsyncSpaceTrackClient` classes. It will be passed a
+value to be compared against :func:`time.monotonic` to get the remaining time:
 
 .. code-block:: python
 
@@ -139,7 +138,7 @@ time that the module is sleeping until, in seconds since the epoch (as with
     from spacetrack import SpaceTrackClient
 
     def mycallback(until):
-        duration = int(round(until - time.time()))
+        duration = int(round(until - time.monotonic()))
         print('Sleeping for {:d} seconds.'.format(duration))
 
     st = SpaceTrackClient(identity='user@example.com', password='password')
