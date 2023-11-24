@@ -4,7 +4,12 @@ Change Log
 Unreleased_
 -----------
 
-N/A
+Fixed
+~~~~~
+
+- Since version 1.0, the value passed to ``SpaceTrackClient.callback``, if set,
+  is from `time.monotonic()` but the documentation was not updated to reflect
+  this.
 
 1.1.0_ - 2023-10-15
 -------------------
