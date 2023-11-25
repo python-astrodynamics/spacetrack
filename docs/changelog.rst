@@ -4,6 +4,11 @@ Change Log
 Unreleased_
 -----------
 
+N/A
+
+1.2.0_ - 2023-11-25
+-------------------
+
 Added
 ~~~~~
 
@@ -14,7 +19,7 @@ Fixed
 ~~~~~
 
 - Since version 1.0, the value passed to ``SpaceTrackClient.callback``, if set,
-  is from `time.monotonic()` but the documentation was not updated to reflect
+  is from :func:`time.monotonic` but the documentation was not updated to reflect
   this.
 
 1.1.0_ - 2023-10-15
@@ -322,7 +327,8 @@ Changed
 
 First release.
 
-.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/1.1.0...HEAD
+.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/1.2.0...HEAD
+.. _1.2.0: https://github.com/python-astrodynamics/spacetrack/compare/1.1.0...1.2.0
 .. _1.1.0: https://github.com/python-astrodynamics/spacetrack/compare/1.0.1...1.1.0
 .. _1.0.1: https://github.com/python-astrodynamics/spacetrack/compare/1.0.0...1.0.1
 .. _1.0.0: https://github.com/python-astrodynamics/spacetrack/compare/0.16.0...1.0.0
