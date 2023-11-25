@@ -4,6 +4,12 @@ Change Log
 Unreleased_
 -----------
 
+Added
+~~~~~
+
+- ``additional_rate_limit`` argument to
+  :class:`~spacetrack.base.SpaceTrackClient`.
+
 Fixed
 ~~~~~
 

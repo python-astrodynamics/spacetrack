@@ -140,6 +140,8 @@ class SpaceTrackClient:
             ``SpaceTrackClient`` takes ownership of the httpx client. You should
             only provide your own client if you need to configure it first (e.g.
             for a proxy).
+        additional_rate_limit: Optionally, a :class:`rush.quota.Quota` if you
+            want to restrict the rate limit further than the defaults.
 
     For more information, refer to the `Space-Track documentation`_.
 
@@ -268,6 +270,7 @@ class SpaceTrackClient:
         rush_store=None,
         rush_key_prefix="",
         httpx_client=None,
+        additional_rate_limit=None,
     ):
         if httpx_client is None:
             httpx_client = httpx.Client()
@@ -303,6 +306,15 @@ class SpaceTrackClient:
         )
         self._per_minute_key = rush_key_prefix + "st_req_min"
         self._per_hour_key = rush_key_prefix + "st_req_hr"
+        self._additional_key = rush_key_prefix + "st_req_custom"
+        if isinstance(additional_rate_limit, Quota):
+            self._additional_throttle = Throttle(
+                limiter=limiter, rate=additional_rate_limit
+            )
+        elif additional_rate_limit is None:
+            self._additional_throttle = None
+        else:
+            raise TypeError("additional_rate_limit must be a rush.quota.Quota")
 
     @property
     def base_url(self):
@@ -599,6 +611,10 @@ class SpaceTrackClient:
 
         if hour_limit.limited:
             sleep_time = max(sleep_time, hour_limit.retry_after.total_seconds())
+
+        if self._additional_throttle is not None:
+            additional_limit = self._additional_throttle.check(self._additional_key, 1)
+            sleep_time = max(sleep_time, additional_limit.retry_after.total_seconds())
 
         if sleep_time > 0:
             yield RateLimitWait(sleep_time)
