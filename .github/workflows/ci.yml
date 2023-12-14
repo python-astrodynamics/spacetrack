@@ -34,7 +34,7 @@ jobs:
         run: "python -m tox -- -v"
 
       - name: "Upload coverage data"
-        uses: "actions/upload-artifact@v3"
+        uses: "actions/upload-artifact@v4"
         with:
           name: coverage-data
           path: .coverage.*
@@ -65,7 +65,7 @@ jobs:
           python -m coverage report
 
       - name: "Upload HTML report"
-        uses: "actions/upload-artifact@v3"
+        uses: "actions/upload-artifact@v4"
         with:
           name: "html-report"
           path: "htmlcov"
