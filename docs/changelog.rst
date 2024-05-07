@@ -4,10 +4,15 @@ Change Log
 Unreleased_
 -----------
 
+N/A
+
+1.3.0_ - 2024-05-07
+-------------------
+
 Added
 ~~~~~
 
-- Timezone aware datetimes are supported in request predicates.
+- Timezone-aware datetimes are supported in request predicates.
 
 1.2.0_ - 2023-11-25
 -------------------
@@ -330,7 +335,8 @@ Changed
 
 First release.
 
-.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/1.2.0...HEAD
+.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/1.3.0...HEAD
+.. _1.3.0: https://github.com/python-astrodynamics/spacetrack/compare/1.2.0...1.3.0
 .. _1.2.0: https://github.com/python-astrodynamics/spacetrack/compare/1.1.0...1.2.0
 .. _1.1.0: https://github.com/python-astrodynamics/spacetrack/compare/1.0.1...1.1.0
 .. _1.0.1: https://github.com/python-astrodynamics/spacetrack/compare/1.0.0...1.0.1
