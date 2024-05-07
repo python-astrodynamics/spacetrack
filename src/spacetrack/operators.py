@@ -45,6 +45,8 @@ def _stringify_predicate_value(value):
     elif isinstance(value, Sequence) and not isinstance(value, str):
         return ",".join(_stringify_predicate_value(x) for x in value)
     elif isinstance(value, datetime.datetime):
+        if value.tzinfo is not None:
+            value = value.astimezone(datetime.timezone.utc).replace(tzinfo=None)
         return value.isoformat(sep=" ")
     elif isinstance(value, datetime.date):
         return value.isoformat()

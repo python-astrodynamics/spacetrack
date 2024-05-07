@@ -4,7 +4,10 @@ Change Log
 Unreleased_
 -----------
 
-N/A
+Added
+~~~~~
+
+- Timezone aware datetimes are supported in request predicates.
 
 1.2.0_ - 2023-11-25
 -------------------
