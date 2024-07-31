@@ -4,7 +4,10 @@ Change Log
 Unreleased_
 -----------
 
-N/A
+Fixed
+~~~~~
+
+-  The ‘mediumtext’ predicate type is now understood.
 
 1.3.0_ - 2024-05-07
 -------------------

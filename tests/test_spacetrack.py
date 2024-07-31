@@ -476,6 +476,7 @@ def test_dir():
         (Predicate("a", "date"), "2017-01-01", dt.date(2017, 1, 1)),
         (Predicate("a", "enum", values=("a", "b")), "a", "a"),
         (Predicate("a", "int"), None, None),
+        (Predicate("a", "mediumtext"), "Hello", "Hello"),
     ],
 )
 def test_predicate_parse_type(predicate, input, output):
