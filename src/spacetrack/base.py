@@ -766,6 +766,7 @@ class SpaceTrackClient:
                 "char": "str",
                 "varchar": "str",
                 "longtext": "str",
+                "mediumtext": "str",
                 "text": "str",
                 # varbinary only used for 'file' request class, for the
                 # 'file_link' predicate.
