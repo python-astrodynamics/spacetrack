@@ -13,27 +13,25 @@ repos:
     rev: v3.5.1
     hooks:
       - id: prettier
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.19.1
-    hooks:
-      - id: pyupgrade
-        args: [--py38-plus]
-  - repo: https://github.com/PyCQA/isort
-    rev: 6.0.0
-    hooks:
-      - id: isort
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.1.2
-    hooks:
-      - id: flake8
-        additional_dependencies:
-          - flake8-future-import==0.4.7
   - repo: https://github.com/pycqa/doc8
     rev: v1.1.2
     hooks:
       - id: doc8
         exclude: README\.rst
-  - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 25.1.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.7 # also update pyproject.toml
     hooks:
-      - id: black
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.6.2
+    hooks:
+      - id: uv-lock
+      - id: uv-export
+        args:
+          - --frozen
+          - --no-dev
+          - --group=docs
+          - --no-emit-project
+          - --output-file=docs/requirements.txt
