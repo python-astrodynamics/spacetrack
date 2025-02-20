@@ -383,7 +383,7 @@ def test_raise_for_status(respx_mock):
     with pytest.raises(httpx.HTTPStatusError) as exc:
         _raise_for_status(response2)
     assert "Space-Track" in str(exc.value)
-    assert '{"wrongkey": "problem"}' in str(exc.value)
+    assert '{"wrongkey":"problem"}' in str(exc.value)
 
     with pytest.raises(httpx.HTTPStatusError) as exc:
         _raise_for_status(response3)
