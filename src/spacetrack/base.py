@@ -43,6 +43,11 @@ enum_re = re.compile(
 
 BASE_URL = "https://www.space-track.org/"
 
+REQUEST_CLASS_DEPRECATION_MSG = (
+    "The {class_} request class is deprecated and scheduled to be "
+    "removed. Visit https://www.space-track.org for more information."
+)
+
 
 class AuthenticationError(Exception):
     """Space-Track authentication error."""
@@ -242,6 +247,14 @@ class SpaceTrackClient:
         ("dirs", "publicfiles"): set(),
         ("download", "publicfiles"): set(),
     }
+    deprecated_controllers = {
+        "basicspacedata": {
+            "tle",
+            "tle_latest",
+            "tle_publish",
+            "omm",
+        },
+    }
     param_fields = {
         ("download", "publicfiles"): {"name"},
     }
@@ -439,6 +452,16 @@ class SpaceTrackClient:
 
         valid_params = self.param_fields.get((class_, controller), set())
         params = dict()
+
+        if (
+            controller in self.deprecated_controllers
+            and class_ in self.deprecated_controllers[controller]
+        ):
+            warnings.warn(
+                REQUEST_CLASS_DEPRECATION_MSG.format(class_=class_),
+                DeprecationWarning,
+                stacklevel=4,
+            )
 
         url = f"{controller}/query/class/{class_}"
 
