@@ -316,6 +316,19 @@ class SpaceTrackClient:
         else:
             raise TypeError("additional_rate_limit must be a rush.quota.Quota")
 
+        self._setup_finalizer()
+
+    def _setup_finalizer(self):
+        self._finalizer = weakref.finalize(
+            self,
+            self._cleanup,
+            warn_message=(
+                f"{self!r} was garbage collected without being closed "
+                "explicitly. It is recommended to use `with "
+                "SpaceTrackClient(...) as client:` or `client.close()`."
+            ),
+        )
+
     @property
     def base_url(self):
         return str(self.client.base_url)
@@ -358,20 +371,30 @@ class SpaceTrackClient:
             ret = self._handle_event(event)
 
     def _auth_generator(self):
+        if self._authenticated:
+            return
+
+        data = {"identity": self.identity, "password": self.password}
+        resp = yield NormalRequest(
+            self.client.build_request("POST", "ajaxauth/login", data=data)
+        )
+        _raise_for_status(resp)
+
+        # If login failed, we get a JSON response with {'Login': 'Failed'}
+        resp_data = resp.json()
+        if isinstance(resp_data, Mapping):
+            if resp_data.get("Login", None) == "Failed":
+                raise AuthenticationError()
+
+        self._authenticated = True
+
+    def _logout_generator(self):
         if not self._authenticated:
-            data = {"identity": self.identity, "password": self.password}
-            resp = yield NormalRequest(
-                self.client.build_request("POST", "ajaxauth/login", data=data)
-            )
-            _raise_for_status(resp)
+            return
 
-            # If login failed, we get a JSON response with {'Login': 'Failed'}
-            resp_data = resp.json()
-            if isinstance(resp_data, Mapping):
-                if resp_data.get("Login", None) == "Failed":
-                    raise AuthenticationError()
-
-            self._authenticated = True
+        resp = yield NormalRequest(self.client.build_request("GET", "ajaxauth/logout"))
+        _raise_for_status(resp)
+        self._authenticated = False
 
     def authenticate(self):
         """Authenticate with Space-Track.
@@ -384,6 +407,28 @@ class SpaceTrackClient:
             This method is called automatically when required.
         """
         self._run_event_generator(self._auth_generator())
+
+    def logout(self):
+        """Log out of Space-Track.
+
+        .. note::
+
+            This method is called automatically when using
+            :class:`SpaceTrackClient` as a context manager:
+
+            .. code-block:: python
+
+                with SpaceTrackClient(...) as client:
+                    ...
+
+            otherwise, :meth:`close` should be used:
+
+            .. code-block:: python
+
+                client = SpaceTrackClient(...)
+                client.close()
+        """
+        self._run_event_generator(self._logout_generator())
 
     def _generic_request_generator(
         self,
@@ -822,7 +867,14 @@ class SpaceTrackClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    @classmethod
+    def _cleanup(cls, warn_message):
+        warnings.warn(warn_message, ResourceWarning)
+
     def close(self):
+        """Log out of Space-Track (if necessary) and close any open connections."""
+        self._finalizer.detach()
+        self.logout()
         self.client.close()
 
     def __repr__(self):
