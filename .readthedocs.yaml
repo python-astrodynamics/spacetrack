@@ -1,15 +1,15 @@
 version: 2
 
-python:
-  install:
-    - path: .
-      extra_requirements:
-        - docstest
-
 build:
   os: ubuntu-22.04
   tools:
-    python: "3.10"
+    python: "3.13"
+
+python:
+  install:
+    - method: pip
+      path: .
+    - requirements: docs/requirements.txt
 
 sphinx:
   configuration: docs/conf.py

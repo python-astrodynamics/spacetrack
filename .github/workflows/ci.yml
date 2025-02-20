@@ -16,29 +16,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - uses: "actions/checkout@v4"
+      - uses: "astral-sh/setup-uv@v5"
+        with:
+          enable-cache: true
       - uses: "actions/setup-python@v5"
         with:
           python-version: "${{ matrix.python-version }}"
       - name: "Install dependencies"
         run: |
+          set -xe
           python -VV
+          rustc --version
           python -m site
-          python -m pip install --upgrade pip setuptools wheel
-          python -m pip install --upgrade coverage[toml] virtualenv tox tox-gh-actions
-
-      - name: "Run tox targets for ${{ matrix.python-version }}"
-        run: "python -m tox -- -v"
-
+          uv --version
+          uv sync --no-install-project --no-dev --group nox --group coverage
+      - name: "Run nox targets for ${{ matrix.python-version }}"
+        run: "uv run nox --python ${{ matrix.python-version }}"
       - name: "Convert coverage"
         run: |
-          python -m coverage combine
-          python -m coverage report
-          python -m coverage xml
-
+          uv run coverage combine
+          uv run coverage xml
       - name: "Upload coverage to Codecov"
         uses: codecov/codecov-action@v5
         with:
