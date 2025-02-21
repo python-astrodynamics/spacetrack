@@ -559,6 +559,58 @@ def test_params(respx_mock, mock_auth):
     assert b"".join(result) == data
 
 
+def test_modeldef_cache(respx_mock, mock_auth, cache_file_mangler):
+    respx_mock.get("basicspacedata/query/class/gp/norad_cat_id/25541").respond(
+        json="dummy"
+    )
+
+    modeldef_route = respx_mock.get("basicspacedata/modeldef/class/gp").respond(
+        json={
+            "controller": "fileshare",
+            "data": [
+                {
+                    "Field": "NORAD_CAT_ID",
+                    "Type": "int(10) unsigned",
+                    "Null": "NO",
+                    "Key": "",
+                    "Default": None,
+                    "Extra": "",
+                },
+            ],
+        },
+    )
+
+    with SpaceTrackClient("identity", "password") as client:
+        assert client.gp(norad_cat_id=25541) == "dummy"
+        assert modeldef_route.call_count == 1
+
+        assert client.gp(norad_cat_id=25541) == "dummy"
+        assert modeldef_route.call_count == 1
+
+    with SpaceTrackClient("identity", "password") as client:
+        assert client.gp(norad_cat_id=25541) == "dummy"
+        assert modeldef_route.call_count == 1
+
+        cache_path = client._dirs.user_cache_path
+        cache_files = list(cache_path.glob("*.json"))
+        assert [str(p.relative_to(cache_path)) for p in cache_files] == [
+            "predicates-basicspacedata.gp.json"
+        ]
+
+        for file in cache_files:
+            cache_file_mangler(file)
+
+        # Even though cache file is gone, client still has it in memory so there
+        # should be no new modeldef request
+        assert client.gp(norad_cat_id=25541) == "dummy"
+        assert modeldef_route.call_count == 1
+
+    with SpaceTrackClient("identity", "password") as client:
+        # There should be a new modeldef request because we deleted the cache file
+        assert client.gp(norad_cat_id=25541) == "dummy"
+        assert modeldef_route.call_count == 2
+
+
 def test_implicit_cleanup_warning():
     with pytest.warns(ResourceWarning, match="without being closed explicitly"):
         SpaceTrackClient("identity", "password")

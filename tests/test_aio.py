@@ -148,3 +148,95 @@ async def test_ratelimit_error(
 
     assert mock_callback.call_count == 1
     mock_callback.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_modeldef_cache(respx_mock, mock_auth, cache_file_mangler):
+    respx_mock.get("basicspacedata/query/class/gp/norad_cat_id/25541").respond(
+        json="dummy"
+    )
+
+    modeldef_route = respx_mock.get("basicspacedata/modeldef/class/gp").respond(
+        json={
+            "controller": "fileshare",
+            "data": [
+                {
+                    "Field": "NORAD_CAT_ID",
+                    "Type": "int(10) unsigned",
+                    "Null": "NO",
+                    "Key": "",
+                    "Default": None,
+                    "Extra": "",
+                },
+            ],
+        },
+    )
+
+    async with AsyncSpaceTrackClient("identity", "password") as client:
+        assert await client.gp(norad_cat_id=25541) == "dummy"
+        assert modeldef_route.call_count == 1
+
+        assert await client.gp(norad_cat_id=25541) == "dummy"
+        assert modeldef_route.call_count == 1
+
+    async with AsyncSpaceTrackClient("identity", "password") as client:
+        assert await client.gp(norad_cat_id=25541) == "dummy"
+        assert modeldef_route.call_count == 1
+
+        cache_path = client._dirs.user_cache_path
+        cache_files = list(cache_path.glob("*.json"))
+        assert [str(p.relative_to(cache_path)) for p in cache_files] == [
+            "predicates-basicspacedata.gp.json"
+        ]
+
+        for file in cache_files:
+            cache_file_mangler(file)
+
+        # Even though cache file is gone, client still has it in memory so there
+        # should be no new modeldef request
+        assert await client.gp(norad_cat_id=25541) == "dummy"
+        assert modeldef_route.call_count == 1
+
+    async with AsyncSpaceTrackClient("identity", "password") as client:
+        # There should be a new modeldef request because we deleted the cache file
+        assert await client.gp(norad_cat_id=25541) == "dummy"
+        assert modeldef_route.call_count == 2
+
+
+@pytest.mark.trio
+async def test_modeldef_not_used_trio(respx_mock, mock_auth):
+    respx_mock.get("basicspacedata/query/class/gp/norad_cat_id/25541").respond(
+        json="dummy"
+    )
+
+    modeldef_route = respx_mock.get("basicspacedata/modeldef/class/gp").respond(
+        json={
+            "controller": "fileshare",
+            "data": [
+                {
+                    "Field": "NORAD_CAT_ID",
+                    "Type": "int(10) unsigned",
+                    "Null": "NO",
+                    "Key": "",
+                    "Default": None,
+                    "Extra": "",
+                },
+            ],
+        },
+    )
+
+    async with AsyncSpaceTrackClient("identity", "password") as client:
+        assert await client.gp(norad_cat_id=25541) == "dummy"
+        assert modeldef_route.call_count == 0
+
+        # If predicates are requested explicitly, they should be cached (in
+        # client only) and used
+        await client.gp.get_predicates()
+        assert modeldef_route.call_count == 1
+
+        assert await client.gp(norad_cat_id=25541) == "dummy"
+        assert modeldef_route.call_count == 1
+
+        cache_path = client._dirs.user_cache_path
+        cache_files = list(cache_path.glob("*.json"))
+        assert cache_files == []
