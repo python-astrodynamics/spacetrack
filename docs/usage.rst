@@ -19,11 +19,11 @@ in several ways. All the following are equivalent:
 
 .. code-block:: python
 
-    st.tle_publish()
-    st.tle_publish(controller="basicspacedata")
-    st.basicspacedata.tle_publish()
-    st.generic_request("tle_publish")
-    st.generic_request("tle_publish", controller="basicspacedata")
+    st.gp_history()
+    st.gp_history(controller="basicspacedata")
+    st.basicspacedata.gp_history()
+    st.generic_request("gp_history")
+    st.generic_request("gp_history", controller="basicspacedata")
 
 Request predicates are passed as keyword arguments. Valid
 arguments can be checked using the
@@ -32,21 +32,22 @@ are equivalent:
 
 .. code-block:: python
 
-    st.tle_publish.get_predicates()
-    st.tle_publish.get_predicates(controller="basicspacedata")
-    st.basicspacedata.tle_publish.get_predicates()
-    st.basicspacedata.get_predicates("tle_publish")
-    st.get_predicates("tle_publish")
-    st.get_predicates("tle_publish", controller="basicspacedata")
+    st.gp_history.get_predicates()
+    st.gp_history.get_predicates(controller="basicspacedata")
+    st.basicspacedata.gp_history.get_predicates()
+    st.basicspacedata.get_predicates("gp_history")
+    st.get_predicates("gp_history")
+    st.get_predicates("gp_history", controller="basicspacedata")
 
 Returned object:
 
 .. code-block:: python
 
     [
-        Predicate(name="publish_epoch", type_="datetime", nullable=False),
-        Predicate(name="tle_line1", type_="str", nullable=False),
-        Predicate(name="tle_line2", type_="str", nullable=False),
+        Predicate(name='creation_date', type_='datetime', nullable=True, default=None),
+        Predicate(name='object_name', type_='str', nullable=True, default=None),
+        Predicate(name='eccentricity', type_='float', nullable=True, default=None),
+        ... # and many more
     ]
 
 Internally, the client uses this mechanism to verify the keyword arguments.
@@ -69,13 +70,12 @@ The same example is shown below synchronously and asynchronously.
     from spacetrack import SpaceTrackClient
 
     with SpaceTrackClient(identity="user@example.com", password="password") as st:
-        data = st.tle_latest(
+        data = st.gp(
             iter_lines=True,
-            ordinal=1,
             epoch=">now-30",
             mean_motion=op.inclusive_range(0.99, 1.01),
             eccentricity=op.less_than(0.01),
-            ormat="tle",
+            format="tle",
         )
 
         with open("tle_latest.txt", "w") as fp:
@@ -94,9 +94,8 @@ The same example is shown below synchronously and asynchronously.
         async with AsyncSpaceTrackClient(
             identity="user@example.com", password="password"
         ) as st:
-            data = await st.tle_latest(
+            data = await st.gp(
                 iter_lines=True,
-                ordinal=1,
                 epoch=">now-30",
                 mean_motion=op.inclusive_range(0.99, 1.01),
                 eccentricity=op.less_than(0.01),
@@ -191,28 +190,22 @@ the Python module.
 
 .. code-block:: python
 
-   st.tle_latest(
-       ordinal=1,
+    st.gp(
        epoch=">now-30",
        mean_motion=op.inclusive_range(0.99, 1.01),
        eccentricity=op.less_than(0.01),
        format="tle",
+    )
+
+.. code-block:: python
+
+   st.gp(
+       epoch=">now-30", mean_motion=op.greater_than(11.25), format="3le"
    )
 
 .. code-block:: python
 
-   st.tle_latest(
-       ordinal=1, epoch=">now-30", mean_motion=op.greater_than(11.25), format="3le"
-   )
-
-.. code-block:: python
-
-   st.tle_latest(favorites="Amateur", ordinal=1, epoch=">now-30", format="3le")
-
-.. code-block:: python
-
-   st.tle_latest(
-       ordinal=1,
+   st.gp(
        norad_cat_id=[
            36000,
            op.inclusive_range(36001, 36004),
@@ -226,11 +219,11 @@ the Python module.
 
 .. code-block:: python
 
-   st.tle(norad_cat_id=25544, orderby="epoch desc", limit=22, format="tle")
+   st.gp_history(norad_cat_id=25544, orderby="epoch desc", limit=22, format="tle")
 
 .. code-block:: python
 
-   st.omm(norad_cat_id=25544, orderby="epoch desc", limit=22, format="xml")
+   st.gp_history(norad_cat_id=25544, orderby="epoch desc", limit=22, format="xml")
 
 .. code-block:: python
 
