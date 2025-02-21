@@ -48,6 +48,13 @@ REQUEST_CLASS_DEPRECATION_MSG = (
     "removed. Visit https://www.space-track.org for more information."
 )
 
+__all__ = (
+    "AuthenticationError",
+    "Predicate",
+    "SpaceTrackClient",
+    "UnknownPredicateTypeWarning",
+)
+
 
 class AuthenticationError(Exception):
     """Space-Track authentication error."""

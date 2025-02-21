@@ -17,6 +17,8 @@ from .base import (
     logger,
 )
 
+__all__ = ("AsyncSpaceTrackClient",)
+
 
 class AsyncSpaceTrackClient(SpaceTrackClient):
     """Asynchronous SpaceTrack client class.
