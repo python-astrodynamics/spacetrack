@@ -13,6 +13,12 @@ from spacetrack import (
 from spacetrack.base import Predicate, _iter_content_generator, _raise_for_status
 
 
+@pytest.fixture
+def client(respx_mock):
+    with SpaceTrackClient("identity", "password") as st:
+        yield st
+
+
 def test_iter_content_generator():
     """Test CRLF -> LF newline conversion."""
 
@@ -33,49 +39,43 @@ def test_iter_content_generator():
         assert result == [b"1\r\n2\r\n", b"3\r", b"\n4", b"\r\n5"]
 
 
-def test_generic_request_exceptions(mock_auth, mock_predicates_empty):
-    st = SpaceTrackClient("identity", "password")
+def test_generic_request_exceptions(client, mock_auth, mock_predicates_empty):
+    with pytest.raises(ValueError):
+        client.generic_request(class_="tle", iter_lines=True, iter_content=True)
 
     with pytest.raises(ValueError):
-        st.generic_request(class_="tle", iter_lines=True, iter_content=True)
-
-    with pytest.raises(ValueError):
-        st.generic_request(class_="thisclassdoesnotexist")
+        client.generic_request(class_="thisclassdoesnotexist")
 
     with pytest.raises(TypeError):
-        st.generic_request("tle", madeupkeyword=None)
+        client.generic_request("tle", madeupkeyword=None)
 
     with pytest.raises(ValueError):
-        st.generic_request(class_="tle", controller="nonsense")
+        client.generic_request(class_="tle", controller="nonsense")
 
     with pytest.raises(ValueError):
-        st.generic_request(class_="nonsense", controller="basicspacedata")
+        client.generic_request(class_="nonsense", controller="basicspacedata")
 
     with pytest.raises(AttributeError):
-        st.basicspacedata.blahblah
+        client.basicspacedata.blahblah
 
 
-def test_get_predicates_exceptions():
-    st = SpaceTrackClient("identity", "password")
+def test_get_predicates_exceptions(client):
+    with pytest.raises(ValueError):
+        client.get_predicates(class_="tle", controller="nonsense")
 
     with pytest.raises(ValueError):
-        st.get_predicates(class_="tle", controller="nonsense")
-
-    with pytest.raises(ValueError):
-        st.get_predicates(class_="nonsense", controller="basicspacedata")
+        client.get_predicates(class_="nonsense", controller="basicspacedata")
 
 
-def test_get_predicates():
-    st = SpaceTrackClient("identity", "password")
-
+def test_get_predicates(client):
     patch_get_predicates = patch.object(SpaceTrackClient, "get_predicates")
 
     with patch_get_predicates as mock_get_predicates:
-        st.tle.get_predicates()
-        st.basicspacedata.tle.get_predicates()
-        st.basicspacedata.get_predicates("tle")
-        st.get_predicates("tle")
-        st.get_predicates("tle", "basicspacedata")
+        client.tle.get_predicates()
+        client.basicspacedata.tle.get_predicates()
+        client.basicspacedata.get_predicates("tle")
+        client.get_predicates("tle")
+        client.get_predicates("tle", "basicspacedata")
 
         expected_calls = [
             call(class_="tle", controller="basicspacedata"),
@@ -88,7 +88,7 @@ def test_get_predicates():
         assert mock_get_predicates.call_args_list == expected_calls
 
 
-def test_generic_request(respx_mock, mock_auth, mock_tle_publish_predicates):
+def test_generic_request(respx_mock, client, mock_auth, mock_tle_publish_predicates):
     tle = (
         "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927\r\n"
         "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537\r\n"
@@ -100,10 +100,9 @@ def test_generic_request(respx_mock, mock_auth, mock_tle_publish_predicates):
         text=tle
     )
 
-    st = SpaceTrackClient("identity", "password")
-    assert st.tle_publish(format="tle") == normalised_tle
+    assert client.tle_publish(format="tle") == normalised_tle
 
-    lines = list(st.tle_publish(iter_lines=True, format="tle"))
+    lines = list(client.tle_publish(iter_lines=True, format="tle"))
 
     assert lines == [
         "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927",
@@ -112,45 +111,43 @@ def test_generic_request(respx_mock, mock_auth, mock_tle_publish_predicates):
 
     respx_mock.get("basicspacedata/query/class/tle_publish").respond(json={"a": 5})
 
-    result = st.tle_publish()
+    result = client.tle_publish()
     assert result["a"] == 5
 
     respx_mock.get("basicspacedata/query/class/tle_publish").respond(
         stream=[b"abc", b"def"]
     )
 
-    result = list(st.tle_publish(iter_content=True))
+    result = list(client.tle_publish(iter_content=True))
 
     assert "".join(result) == "abcdef"
 
 
-def test_predicate_error(mock_auth, mock_predicates_empty):
-    st = SpaceTrackClient("identity", "password")
+def test_predicate_error(client, mock_auth, mock_predicates_empty):
     with pytest.raises(TypeError, match=r"unexpected argument 'banana'"):
-        st.gp(banana=4)
+        client.gp(banana=4)
 
 
-def test_bytes_response(respx_mock, mock_auth, mock_download_predicates):
+def test_bytes_response(client, respx_mock, mock_auth, mock_download_predicates):
     data = b"bytes response \r\n"
 
     url = "fileshare/query/class/download/format/stream"
     respx_mock.get(url).respond(content=data)
 
-    st = SpaceTrackClient("identity", "password")
-    assert st.download(format="stream") == data
+    assert client.download(format="stream") == data
 
     with pytest.raises(ValueError):
-        st.download(iter_lines=True, format="stream")
+        client.download(iter_lines=True, format="stream")
 
     # Just use file_id to disambiguate URL from those above
     respx_mock.get(url).respond(stream=[b"abc", b"def"])
 
-    result = list(st.download(format="stream", iter_content=True))
+    result = list(client.download(format="stream", iter_content=True))
 
     assert b"".join(result) == b"abcdef"
 
 
-def test_ratelimit_error(respx_mock, mock_auth, mock_tle_publish_predicates):
+def test_ratelimit_error(client, respx_mock, mock_auth, mock_tle_publish_predicates):
     route = respx_mock.get("basicspacedata/query/class/tle_publish").mock(
         side_effect=[
             httpx.Response(500, text="violated your query rate limit"),
@@ -158,19 +155,17 @@ def test_ratelimit_error(respx_mock, mock_auth, mock_tle_publish_predicates):
         ]
     )
 
-    st = SpaceTrackClient("identity", "password")
-
     # Change ratelimiter period to speed up test
-    st._per_minute_throttle.rate = Quota.per_second(30)
+    client._per_minute_throttle.rate = Quota.per_second(30)
 
     # Do it first without our own callback, then with.
 
-    assert st.tle_publish() == {"a": 1}
+    assert client.tle_publish() == {"a": 1}
     assert route.call_count == 2
     assert route.calls[0].response.status_code == 500
 
     mock_callback = Mock()
-    st.callback = mock_callback
+    client.callback = mock_callback
 
     route.reset()
     route.side_effect = [
@@ -178,35 +173,33 @@ def test_ratelimit_error(respx_mock, mock_auth, mock_tle_publish_predicates):
         httpx.Response(200, json={"a": 1}),
     ]
 
-    assert st.tle_publish() == {"a": 1}
+    assert client.tle_publish() == {"a": 1}
     assert route.call_count == 2
     assert route.calls[0].response.status_code == 500
 
     assert mock_callback.call_count == 1
 
 
-def test_non_ratelimit_error(respx_mock, mock_auth, mock_tle_publish_predicates):
-    st = SpaceTrackClient("identity", "password")
-
+def test_non_ratelimit_error(
+    client, respx_mock, mock_auth, mock_tle_publish_predicates
+):
     # Change ratelimiter period to speed up test
-    st._per_minute_throttle.rate = Quota.per_second(30)
+    client._per_minute_throttle.rate = Quota.per_second(30)
 
     mock_callback = Mock()
-    st.callback = mock_callback
+    client.callback = mock_callback
 
     respx_mock.get("basicspacedata/query/class/tle_publish").respond(
         500, text="some other error"
     )
 
     with pytest.raises(httpx.HTTPStatusError):
-        st.tle_publish()
+        client.tle_publish()
 
     assert not mock_callback.called
 
 
-def test_predicate_parse_modeldef():
-    st = SpaceTrackClient("identity", "password")
-
+def test_predicate_parse_modeldef(client):
     predicates_data = [
         {
             "Default": "",
@@ -219,7 +212,7 @@ def test_predicate_parse_modeldef():
     ]
 
     with pytest.raises(ValueError):
-        st._parse_predicates_data(predicates_data)
+        client._parse_predicates_data(predicates_data)
 
     predicates_data = [
         {
@@ -234,7 +227,7 @@ def test_predicate_parse_modeldef():
 
     msg = "Unknown predicate type 'unknowntype'"
     with pytest.warns(UnknownPredicateTypeWarning, match=msg):
-        st._parse_predicates_data(predicates_data)
+        client._parse_predicates_data(predicates_data)
 
     predicates_data = [
         {
@@ -248,7 +241,7 @@ def test_predicate_parse_modeldef():
     ]
 
     with pytest.raises(ValueError):
-        st._parse_predicates_data(predicates_data)
+        client._parse_predicates_data(predicates_data)
 
     predicates_data = [
         {
@@ -261,7 +254,7 @@ def test_predicate_parse_modeldef():
         }
     ]
 
-    predicate = st._parse_predicates_data(predicates_data)[0]
+    predicate = client._parse_predicates_data(predicates_data)[0]
     assert predicate.values == ("a", "b")
 
     predicates_data = [
@@ -275,7 +268,7 @@ def test_predicate_parse_modeldef():
         }
     ]
 
-    predicate = st._parse_predicates_data(predicates_data)[0]
+    predicate = client._parse_predicates_data(predicates_data)[0]
     assert predicate.values == ("a",)
 
     predicates_data = [
@@ -289,35 +282,33 @@ def test_predicate_parse_modeldef():
         }
     ]
 
-    predicate = st._parse_predicates_data(predicates_data)[0]
+    predicate = client._parse_predicates_data(predicates_data)[0]
     assert predicate.values == ("a", "b", "c")
 
 
-def test_bare_spacetrack_methods():
-    """Verify that e.g. st.tle_publish calls st.generic_request('tle_publish')"""
-    st = SpaceTrackClient("identity", "password")
+def test_bare_spacetrack_methods(client):
+    """Verify that e.g. client.tle_publish calls client.generic_request('tle_publish')"""
     seen = set()
     with patch.object(SpaceTrackClient, "generic_request") as mock_generic_request:
-        for controller, classes in st.request_controllers.items():
+        for controller, classes in client.request_controllers.items():
             for class_ in classes:
                 if class_ in seen:
                     continue
                 seen.add(class_)
-                method = getattr(st, class_)
+                method = getattr(client, class_)
                 method()
                 expected = call(class_=class_, controller=controller)
                 assert mock_generic_request.call_args == expected
 
     with pytest.raises(AttributeError):
-        st.madeupmethod()
+        client.madeupmethod()
 
 
-def test_controller_spacetrack_methods():
-    st = SpaceTrackClient("identity", "password")
+def test_controller_spacetrack_methods(client):
     with patch.object(SpaceTrackClient, "generic_request") as mock_generic_request:
-        for controller, classes in st.request_controllers.items():
+        for controller, classes in client.request_controllers.items():
             for class_ in classes:
-                controller_proxy = getattr(st, controller)
+                controller_proxy = getattr(client, controller)
                 method = getattr(controller_proxy, class_)
                 method()
                 expected = call(class_=class_, controller=controller)
@@ -336,30 +327,35 @@ def test_authenticate(respx_mock):
             return httpx.Response(200, json="")
 
     route = respx_mock.post("ajaxauth/login").mock(side_effect=request_callback)
+    respx_mock.get("ajaxauth/logout").respond(json="Successfully logged out")
 
-    st = SpaceTrackClient("identity", "wrongpassword")
+    with SpaceTrackClient("identity", "wrongpassword") as client:
+        with pytest.raises(AuthenticationError):
+            client.authenticate()
 
-    with pytest.raises(AuthenticationError):
-        st.authenticate()
+        assert route.call_count == 1
 
-    assert route.call_count == 1
+        client.password = "correctpassword"
+        client.authenticate()
+        client.authenticate()
 
-    st.password = "correctpassword"
-    st.authenticate()
-    st.authenticate()
+        # Check that only one login request was made since successful
+        # authentication
+        assert route.call_count == 2
 
-    # Check that only one login request was made since successful
-    # authentication
-    assert route.call_count == 2
-
-    st = SpaceTrackClient("identity", "unknownresponse")
-    st.authenticate()
+    with SpaceTrackClient("identity", "unknownresponse") as client:
+        client.authenticate()
 
 
 def test_base_url(respx_mock):
     route = respx_mock.post("https://example.com/ajaxauth/login").respond(json='""')
-    st = SpaceTrackClient("identity", "password", base_url="https://example.com")
-    st.authenticate()
+    respx_mock.get("https://example.com/ajaxauth/logout").respond(
+        json="Successfully logged out"
+    )
+    with SpaceTrackClient(
+        "identity", "password", base_url="https://example.com"
+    ) as client:
+        client.authenticate()
 
     assert route.call_count == 1
 
@@ -395,33 +391,32 @@ def test_raise_for_status(respx_mock):
     assert "Space-Track" not in str(exc.value)
 
 
-def test_repr():
-    st = SpaceTrackClient("hello@example.com", "mypassword")
-    assert repr(st) == "SpaceTrackClient<identity='hello@example.com'>"
-    assert "mypassword" not in repr(st)
+def test_repr(respx_mock):
+    with SpaceTrackClient("hello@example.com", "mypassword") as client:
+        assert repr(client) == "SpaceTrackClient<identity='hello@example.com'>"
+        assert "mypassword" not in repr(client)
 
-    predicate = Predicate(name="a", type_="int", nullable=True, default=None)
-    reprstr = "Predicate(name='a', type_='int', nullable=True, default=None)"
-    assert repr(predicate) == reprstr
+        predicate = Predicate(name="a", type_="int", nullable=True, default=None)
+        reprstr = "Predicate(name='a', type_='int', nullable=True, default=None)"
+        assert repr(predicate) == reprstr
 
-    predicate = Predicate(
-        name="a", type_="enum", nullable=True, values=("a", "b"), default=None
-    )
+        predicate = Predicate(
+            name="a", type_="enum", nullable=True, values=("a", "b"), default=None
+        )
 
-    reprstr = (
-        "Predicate(name='a', type_='enum', nullable=True, "
-        "default=None, values=('a', 'b'))"
-    )
-    assert repr(predicate) == reprstr
+        reprstr = (
+            "Predicate(name='a', type_='enum', nullable=True, "
+            "default=None, values=('a', 'b'))"
+        )
+        assert repr(predicate) == reprstr
 
-    controller_proxy = st.basicspacedata
-    reprstr = "_ControllerProxy<controller='basicspacedata'>"
-    assert repr(controller_proxy) == reprstr
+        controller_proxy = client.basicspacedata
+        reprstr = "_ControllerProxy<controller='basicspacedata'>"
+        assert repr(controller_proxy) == reprstr
 
 
-def test_dir():
-    st = SpaceTrackClient("hello@example.com", "mypassword")
-    assert [s for s in dir(st) if not s.startswith("_")] == [
+def test_dir(client):
+    assert [s for s in dir(client) if not s.startswith("_")] == [
         "announcement",
         "base_url",
         "basicspacedata",
@@ -483,7 +478,7 @@ def test_predicate_parse_type(predicate, input, output):
     assert predicate.parse(input) == output
 
 
-def test_parse_types(respx_mock, mock_auth):
+def test_parse_types(client, respx_mock, mock_auth):
     respx_mock.get("basicspacedata/modeldef/class/tle_publish").respond(
         json={
             "controller": "basicspacedata",
@@ -539,15 +534,13 @@ def test_parse_types(respx_mock, mock_auth):
         ],
     )
 
-    st = SpaceTrackClient("identity", "password")
-
-    (result,) = st.tle_publish(parse_types=True)
+    (result,) = client.tle_publish(parse_types=True)
     assert result["PUBLISH_EPOCH"] == dt.datetime(2017, 1, 2, 3, 4, 5)
     assert result["TLE_LINE1"] == "The quick brown fox jumps over the lazy dog."
     assert result["OTHER_FIELD"] == "Spam and eggs."
 
     with pytest.raises(ValueError) as exc_info:
-        st.tle_publish(format="tle", parse_types=True)
+        client.tle_publish(format="tle", parse_types=True)
 
     assert "parse_types" in exc_info.value.args[0]
 
@@ -560,7 +553,12 @@ def test_params(respx_mock, mock_auth):
         content=data,
     )
 
-    with SpaceTrackClient("identity", "password") as st:
-        result = st.publicfiles.download(name="filename.txt", iter_content=True)
+    with SpaceTrackClient("identity", "password") as client:
+        result = client.publicfiles.download(name="filename.txt", iter_content=True)
 
     assert b"".join(result) == data
+
+
+def test_implicit_cleanup_warning():
+    with pytest.warns(ResourceWarning, match="without being closed explicitly"):
+        SpaceTrackClient("identity", "password")

@@ -21,7 +21,7 @@ def async_runner(request):
 
 
 @pytest_asyncio.fixture
-async def client():
+async def client(respx_mock):
     async with AsyncSpaceTrackClient("identity", "password") as st:
         yield st
 

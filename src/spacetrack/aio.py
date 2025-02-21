@@ -1,5 +1,6 @@
 import asyncio
 import time
+import weakref
 
 import httpx
 import sniffio
@@ -53,6 +54,17 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             additional_rate_limit=additional_rate_limit,
         )
 
+    def _setup_finalizer(self):
+        self._finalizer = weakref.finalize(
+            self,
+            self._cleanup,
+            warn_message=(
+                f"{self!r} was garbage collected without being closed "
+                "explicitly. It is recommended to use `async with "
+                "SpaceTrackClient(...) as client:` or `await client.close()`."
+            ),
+        )
+
     async def _handle_event(self, event):
         if isinstance(event, NormalRequest):
             return await self.client.send(
@@ -97,6 +109,28 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             This method is called automatically when required.
         """
         await self._run_event_generator(self._auth_generator())
+
+    async def logout(self):
+        """Log out of Space-Track.
+
+        .. note::
+
+            This method is called automatically when using
+            :class:`AsyncSpaceTrackClient` as a context manager:
+
+            .. code-block:: python
+
+                async with AsyncSpaceTrackClient(...) as client:
+                    ...
+
+            otherwise, :meth:`close` should be used:
+
+            .. code-block:: python
+
+                client = AsyncSpaceTrackClient(...)
+                await client.close()
+        """
+        await self._run_event_generator(self._logout_generator())
 
     async def generic_request(
         self,
@@ -225,7 +259,9 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         await self.close()
 
     async def close(self):
-        """Close aiohttp session."""
+        """Log out of Space-Track (if necessary) and close any open connections."""
+        self._finalizer.detach()
+        await self.logout()
         await self.client.aclose()
 
 

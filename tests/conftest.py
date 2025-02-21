@@ -20,6 +20,7 @@ def respx_mock(respx_router):
 @pytest.fixture
 def mock_auth(respx_mock):
     respx_mock.post("ajaxauth/login").respond(json="")
+    respx_mock.get("ajaxauth/logout").respond(json="Successfully logged out")
 
 
 @pytest.fixture
