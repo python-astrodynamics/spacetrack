@@ -86,6 +86,7 @@ exclude_lines = ["pragma: no cover", "^\\s*pass\\s*$"]
 [tool.pytest.ini_options]
 addopts = "-r s"
 asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
 
 [tool.ruff.lint]
 select = [
