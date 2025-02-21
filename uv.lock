@@ -883,8 +883,11 @@ name = "spacetrack"
 version = "1.3.1"
 source = { editable = "." }
 dependencies = [
+    { name = "filelock" },
     { name = "httpx" },
     { name = "logbook" },
+    { name = "outcome" },
+    { name = "platformdirs" },
     { name = "python-dateutil", marker = "python_full_version < '3.11'" },
     { name = "represent" },
     { name = "rush" },
@@ -925,8 +928,11 @@ nox = [
 
 [package.metadata]
 requires-dist = [
+    { name = "filelock", specifier = ">=3.17.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "logbook", specifier = ">=1.8.0" },
+    { name = "outcome", specifier = ">=1.3.0.post0" },
+    { name = "platformdirs", specifier = ">=4.3.6" },
     { name = "python-dateutil", marker = "python_full_version < '3.11'", specifier = ">=2.9.0.post0" },
     { name = "represent", specifier = ">=2.1" },
     { name = "rush", specifier = ">=2021.4.0" },

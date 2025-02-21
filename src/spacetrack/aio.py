@@ -3,17 +3,22 @@ import time
 import weakref
 
 import httpx
+import outcome
 import sniffio
+from filelock import AsyncFileLock
 
 from .base import (
     BASE_URL,
+    AcquireLock,
     Event,
     IterContent,
     IterLines,
     NormalRequest,
     RateLimitWait,
     ReadResponse,
+    ReleaseLock,
     SpaceTrackClient,
+    UnsupportedAsyncLibrary,
     logger,
 )
 
@@ -31,6 +36,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
     more information. Note that if passed, the ``httpx_client`` parameter must
     be an ``httpx.AsyncClient``.
     """
+
+    _file_lock_cls = AsyncFileLock
 
     def __init__(
         self,
@@ -82,6 +89,15 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             return _iter_content_generator(event.response, event.decode)
         elif isinstance(event, RateLimitWait):
             await self._ratelimit_wait(event.duration)
+        elif isinstance(event, AcquireLock):
+            if (
+                isinstance(event.lock, AsyncFileLock)
+                and sniffio.current_async_library() != "asyncio"
+            ):
+                raise UnsupportedAsyncLibrary
+            await event.lock.acquire()
+        elif isinstance(event, ReleaseLock):
+            await event.lock.release()
         else:
             raise RuntimeError(f"Unknown event type: {type(event)}")
 
@@ -91,14 +107,17 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
         while True:
             try:
-                event = g.send(ret)
+                if ret is None:
+                    event = g.send(ret)
+                else:
+                    event = ret.send(g)
             except StopIteration as exc:
                 if isinstance(exc.value, Event):
                     return await self._handle_event(exc.value)
 
                 return exc.value
 
-            ret = await self._handle_event(event)
+            ret = await outcome.acapture(self._handle_event, event)
 
     async def authenticate(self):
         """Authenticate with Space-Track.
@@ -245,7 +264,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         for subsequent calls.
         """
         return await self._run_event_generator(
-            self._get_predicates_generator(class_, controller)
+            self._get_predicates_generator(class_, controller, force=True)
         )
 
     def __enter__(self):

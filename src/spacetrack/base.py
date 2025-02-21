@@ -1,3 +1,4 @@
+import json
 import re
 import sys
 import threading
@@ -6,13 +7,18 @@ import warnings
 import weakref
 from collections import OrderedDict
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from functools import partial
+from json import JSONDecodeError
+from pathlib import Path
 from urllib.parse import quote
 
 import attr
 import httpx
+import outcome
+from filelock import FileLock
 from logbook import Logger
+from platformdirs import PlatformDirs
 from represent import ReprHelper, ReprHelperMixin
 from rush.limiters.periodic import PeriodicLimiter
 from rush.quota import Quota
@@ -47,6 +53,9 @@ REQUEST_CLASS_DEPRECATION_MSG = (
     "The {class_} request class is deprecated and scheduled to be "
     "removed. Visit https://www.space-track.org for more information."
 )
+
+CACHE_VERSION = 1
+PREDICATE_CACHE_EXPIRY_TIME = timedelta(days=1)
 
 __all__ = (
     "AuthenticationError",
@@ -94,6 +103,22 @@ class IterContent(Event):
 @attr.s(slots=True)
 class RateLimitWait(Event):
     duration = attr.ib()
+
+
+@attr.s(slots=True)
+class AcquireLock(Event):
+    lock = attr.ib()
+
+
+@attr.s(slots=True)
+class ReleaseLock(Event):
+    lock = attr.ib()
+
+
+class UnsupportedAsyncLibrary(Exception):
+    """Raised internally when an event cannot be handled with the active async
+    library.
+    """
 
 
 class Predicate(ReprHelperMixin):
@@ -282,6 +307,8 @@ class SpaceTrackClient:
         Predicate("favorites", "str"),
     }
 
+    _file_lock_cls = FileLock
+
     def __init__(
         self,
         identity,
@@ -336,6 +363,8 @@ class SpaceTrackClient:
         else:
             raise TypeError("additional_rate_limit must be a rush.quota.Quota")
 
+        self._dirs = PlatformDirs("spacetrack")
+
         self._setup_finalizer()
 
     def _setup_finalizer(self):
@@ -372,6 +401,10 @@ class SpaceTrackClient:
             return _iter_content_generator(event.response, event.decode)
         elif isinstance(event, RateLimitWait):
             self._ratelimit_wait(event.duration)
+        elif isinstance(event, AcquireLock):
+            event.lock.acquire()
+        elif isinstance(event, ReleaseLock):
+            event.lock.release()
         else:
             raise RuntimeError(f"Unknown event type: {type(event)}")
 
@@ -381,14 +414,17 @@ class SpaceTrackClient:
 
         while True:
             try:
-                event = g.send(ret)
+                if ret is None:
+                    event = g.send(ret)
+                else:
+                    event = ret.send(g)
             except StopIteration as exc:
                 if isinstance(exc.value, Event):
                     return self._handle_event(exc.value)
 
                 return exc.value
 
-            ret = self._handle_event(event)
+            ret = outcome.capture(self._handle_event, event)
 
     def _auth_generator(self):
         if self._authenticated:
@@ -493,12 +529,16 @@ class SpaceTrackClient:
 
         yield from self._auth_generator()
 
+        check_keys = True
         if not offline_check:
             # Validate keyword argument names by querying valid predicates from
             # Space-Track
             predicates = yield from self._get_predicates_generator(class_, controller)
-            predicate_fields = {p.name for p in predicates}
-            valid_fields |= predicate_fields
+            if predicates is None:
+                check_keys = False
+            else:
+                predicate_fields = {p.name for p in predicates}
+                valid_fields |= predicate_fields
         else:
             valid_fields |= self.offline_predicates[(class_, controller)]
 
@@ -518,7 +558,7 @@ class SpaceTrackClient:
         url = f"{controller}/query/class/{class_}"
 
         for key, value in kwargs.items():
-            if key not in valid_fields | valid_params:
+            if check_keys and key not in valid_fields | valid_params:
                 raise TypeError(f"'{class_}' got an unexpected argument '{key}'")
 
             if class_ == "upload" and key == "file":
@@ -797,30 +837,119 @@ class SpaceTrackClient:
 
         return resp.json()["data"]
 
-    def _get_predicates_generator(self, class_, controller):
-        if class_ not in self._predicates:
-            if controller is None:
-                controller = self._find_controller(class_)
-            else:
-                classes = self.request_controllers.get(controller, None)
-                if classes is None:
-                    raise ValueError(f"Unknown request controller {controller!r}")
-                if class_ not in classes:
-                    raise ValueError(f"Unknown request class {class_!r}")
+    def _get_predicates_generator(self, class_, controller, *, force=False):
+        if controller is None:
+            controller = self._find_controller(class_)
+        else:
+            classes = self.request_controllers.get(controller, None)
+            if classes is None:
+                raise ValueError(f"Unknown request controller {controller!r}")
+            if class_ not in classes:
+                raise ValueError(f"Unknown request class {class_!r}")
 
-            download = self._download_predicate_data_generator(class_, controller)
-            predicates_data = yield from download
+        key = f"{controller}.{class_}"
+
+        if key not in self._predicates or (force and self._predicates[key] is None):
+            cache_path = self._dirs.user_cache_path
+
+            cache_file = cache_path / f"predicates-{key}.json"
+
+            predicates_data = self._read_cache_file(
+                cache_file, PREDICATE_CACHE_EXPIRY_TIME
+            )
+
+            if predicates_data is None:
+                cache_path.mkdir(parents=True, exist_ok=True)
+
+                lock_file = cache_file.with_name(cache_file.name + ".lock")
+                lock = self._file_lock_cls(lock_file)
+                try:
+                    yield AcquireLock(lock)
+                except UnsupportedAsyncLibrary:
+                    if not force:
+                        # The file lock doesn't support Trio, skip predicate
+                        # checking by setting None
+                        self._predicates[key] = None
+                        return self._predicates[key]
+                    lock_acquired = False
+                else:
+                    lock_acquired = True
+
+                try:
+                    if lock_acquired:
+                        predicates_data = self._read_cache_file(
+                            cache_file, PREDICATE_CACHE_EXPIRY_TIME
+                        )
+                    if predicates_data is None:
+                        predicates_data = yield from self._download_predicate_data_generator(
+                            class_, controller
+                        )
+                        if lock_acquired:
+                            self._write_cache_file(cache_file, predicates_data)
+                finally:
+                    if lock_acquired:
+                        yield ReleaseLock(lock)
+
             predicate_objects = self._parse_predicates_data(predicates_data)
-            self._predicates[class_] = predicate_objects
 
-        return self._predicates[class_]
+            self._predicates[key] = predicate_objects
+
+        return self._predicates[key]
+
+    def _write_cache_file(self, cache_file: Path, data: object) -> None:
+        cache_data = {
+            "timestamp": datetime.now(timezone.utc).timestamp(),
+            "version": CACHE_VERSION,
+            "data": data,
+        }
+        with open(cache_file, "w") as f:
+            json.dump(cache_data, f)
+
+    def _read_cache_file(self, cache_file: Path, expiry_time: timedelta):
+        try:
+            with open(cache_file) as f:
+                try:
+                    cache_data = json.load(f)
+                except JSONDecodeError:
+                    return
+        except FileNotFoundError:
+            return
+
+        if not isinstance(cache_data, dict):
+            return
+
+        try:
+            version = cache_data["version"]
+        except KeyError:
+            return
+        else:
+            if version != CACHE_VERSION:
+                return
+
+        try:
+            timestamp = cache_data["timestamp"]
+        except KeyError:
+            return
+        else:
+            if not isinstance(timestamp, (int, float)):
+                return
+
+            try:
+                created_at = datetime.fromtimestamp(timestamp, timezone.utc)
+            except (ValueError, OverflowError):
+                return
+
+            if created_at + expiry_time < datetime.now(timezone.utc):
+                return
+
+        return cache_data.get("data")
 
     def get_predicates(self, class_, controller=None):
         """Get full predicate information for given request class, and cache
         for subsequent calls.
         """
         return self._run_event_generator(
-            self._get_predicates_generator(class_, controller)
+            self._get_predicates_generator(class_, controller, force=True)
         )
 
     def _parse_predicates_data(self, predicates_data):
