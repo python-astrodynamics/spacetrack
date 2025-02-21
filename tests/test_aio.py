@@ -1,4 +1,3 @@
-import sys
 from unittest.mock import call, patch
 
 import httpx
@@ -30,7 +29,6 @@ async def test_authenticate(client, async_runner, mock_auth):
     await client.authenticate()
 
 
-@pytest.mark.skipif(sys.version_info < (3, 8), reason="Requires Python 3.8+")
 async def test_get_predicates_calls(async_runner, client):
     patch_get_predicates = patch.object(client, "get_predicates")
 
@@ -111,7 +109,6 @@ async def test_iter_content_generator(async_runner):
         assert result == [b"1\r\n2\r\n", b"3\r", b"\n4", b"\r\n5"]
 
 
-@pytest.mark.skipif(sys.version_info < (3, 8), reason="Requires Python 3.8+")
 async def test_ratelimit_error(
     async_runner, client, respx_mock, mock_auth, mock_tle_publish_predicates
 ):
