@@ -126,18 +126,35 @@ opened file:
             st.upload(file=fp)
 
 
-Rate Limiter
-============
+Rate Limiting
+=============
+
+As quoted in the `Space-Track API Use Guidelines <st-api>`_:
 
     "Space-track throttles API use in order to maintain consistent
     performance for all users. To avoid error messages, please limit your
-    query frequency to less than 20 requests per minute."
+    query frequency."
 
-The client will ensure that no more than 19 HTTP requests are sent per minute
-by sleeping if the rate exceeds this. This will be logged to the spacetrack
-module's logger. You can register a callback with the
-:class:`~spacetrack.base.SpaceTrackClient` or
-:class:`~spacetrack.aio.AsyncSpaceTrackClient` classes. It will be passed a
+    **Limit API queries to less than 30 requests per 1 minute(s) / 300 requests
+    per 1 hour(s)**
+
+.. _`st-api`: https://www.space-track.org/documentation#/api
+
+.. important::
+
+    While this library will manage the above rate limiting for you, it cannot
+    help you with the other limits outlined in the `API Use Guidelines <st-api>`_
+    such as how often you download certain data.
+
+    Also consider that the above rate limiting is handled per process and cannot
+    determine how often you start new processes or scripts using your account.
+    The :class:`SpaceTrackClient.rush_store <spacetrack.base.SpaceTrackClient>`
+    argument can be used to use a distributed cache for this purpose.
+
+The client will ensure that no more requests than this are made by sleeping if
+the rate exceeds this. This will be logged to the spacetrack module's logger.
+You can register a callback with the :class:`~spacetrack.base.SpaceTrackClient`
+or :class:`~spacetrack.aio.AsyncSpaceTrackClient` classes. It will be passed a
 value to be compared against :func:`time.monotonic` to get the remaining time:
 
 .. code-block:: python
