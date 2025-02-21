@@ -97,3 +97,4 @@ select = [
 
 [tool.doc8]
 ignore-path = ["docs/_build", "docs/requirements.txt"]
+ignore = ["D001"]

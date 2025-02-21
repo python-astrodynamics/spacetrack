@@ -125,6 +125,7 @@ opened file:
         with open("somefile.txt", "rb") as fp:
             st.upload(file=fp)
 
+.. _rate-limiting:
 
 Rate Limiting
 =============

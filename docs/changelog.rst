@@ -1,10 +1,55 @@
 Change Log
 ==========
 
-Unreleased_
------------
+1.4.0_ - 2025-02-21
+-------------------
 
-N/A
+Added
+~~~~~
+
+- Support for Python 3.13
+- ``timeout`` parameter to request methods. See
+  :meth:`SpaceTrackClient.generic_request <spacetrack.base.SpaceTrackClient.generic_request>`
+
+Changed
+~~~~~~~
+
+- Space-Track prefers that users log out of sessions explicitly. The existing
+  :meth:`SpaceTrackClient.close <spacetrack.base.SpaceTrackClient.close>`
+  method will call the new
+  :meth:`SpaceTrackClient.logout <spacetrack.base.SpaceTrackClient.logout>`
+  method if necessary.
+
+  For this reason, using the client as a context manager is now recommended:
+
+  .. code-block:: python
+
+      with SpaceTrackClient(...) as st:
+          st.gp(...)
+
+- The Space-Track API used to validate keyword arguments is now cached on disk
+  so that it is not queried more than once per day. Due to lack of support for
+  :mod:`trio` in the package used to manage the cache, keyword validation will
+  typically be skipped when using
+  :class:`~spacetrack.aio.AsyncSpaceTrackClient` with :mod:`trio` rather than
+  :mod:`asyncio`.
+
+- Improved :ref:`rate-limiting` documentation to emphasise that the library
+  cannot handle all of Space-Track's usage guidelines for you.
+
+- Default timeouts increased to 30 seconds to better handle current Space-Track
+  performance.
+
+Deprecated
+~~~~~~~~~~
+
+- The ``tle``, ``tle_latest``, ``tle_publish``, and ``omm`` classes have been deprecated by Space-Track and are scheduled to be removed. Visit https://www.space-track.org/documentation#/api for more information.
+
+
+Removed
+~~~~~~~
+
+- **Support for Python 3.8**
 
 1.3.1_ - 2024-08-01
 -------------------
@@ -128,7 +173,7 @@ Fixed
 Added
 ~~~~~
 
--  Support for the `cdm_public` and `gp_history` classes.
+-  Support for the ``cdm_public`` and ``gp_history`` classes.
 
 0.14.0_ - 2020-06-21
 --------------------
@@ -159,7 +204,7 @@ Removed
 Added
 ~~~~~
 
--  Support for the general perturbations (gp) class.
+-  Support for the general perturbations (``gp``) class.
 
 0.13.6_ - 2020-03-20
 --------------------
@@ -343,7 +388,7 @@ Changed
 
 First release.
 
-.. _Unreleased: https://github.com/python-astrodynamics/spacetrack/compare/1.3.1...HEAD
+.. _1.4.0: https://github.com/python-astrodynamics/spacetrack/compare/1.3.1...1.4.0
 .. _1.3.1: https://github.com/python-astrodynamics/spacetrack/compare/1.3.0...1.3.1
 .. _1.3.0: https://github.com/python-astrodynamics/spacetrack/compare/1.2.0...1.3.0
 .. _1.2.0: https://github.com/python-astrodynamics/spacetrack/compare/1.1.0...1.2.0
