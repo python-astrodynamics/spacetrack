@@ -169,7 +169,7 @@ class SpaceTrackClient:
         base_url: May be overridden to use e.g. https://testing.space-track.org/
         rush_store: A :mod:`rush` storage backend. By default, a
             :class:`~rush.stores.dictionary.DictionaryStore` is used. You may
-            wish to use :class:`~rush.stores.dictionary.RedisStore` to
+            wish to use :class:`~rush.stores.redis.RedisStore` to
             follow rate limits from multiple instances.
         rush_key_prefix: You may choose a prefix for the keys that will be
             stored in `rush_store`, e.g. to avoid conflicts in a redis db.
