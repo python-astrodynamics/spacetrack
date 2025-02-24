@@ -6,6 +6,7 @@ import httpx
 import outcome
 import sniffio
 from filelock import AsyncFileLock
+from httpx import USE_CLIENT_DEFAULT
 
 from .base import (
     BASE_URL,
@@ -162,6 +163,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         iter_content=False,
         controller=None,
         parse_types=False,
+        timeout=USE_CLIENT_DEFAULT,
         **kwargs,
     ):
         r"""Generic Space-Track query.
@@ -230,6 +232,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                 iter_content=iter_content,
                 controller=controller,
                 parse_types=parse_types,
+                timeout=timeout,
                 **kwargs,
             )
         )

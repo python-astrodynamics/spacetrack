@@ -18,6 +18,7 @@ import attr
 import httpx
 import outcome
 from filelock import FileLock
+from httpx import USE_CLIENT_DEFAULT
 from logbook import Logger
 from platformdirs import user_cache_path
 from represent import ReprHelper, ReprHelperMixin
@@ -495,10 +496,11 @@ class SpaceTrackClient:
     def _generic_request_generator(
         self,
         class_,
-        iter_lines=False,
-        iter_content=False,
-        controller=None,
-        parse_types=False,
+        iter_lines,
+        iter_content,
+        controller,
+        parse_types,
+        timeout,
         **kwargs,
     ):
         if iter_lines and iter_content:
@@ -586,11 +588,14 @@ class SpaceTrackClient:
                 url,
                 files={"file": kwargs["file"]},
                 params=params,
+                timeout=timeout,
             )
             logger.debug(request.url)
             resp = yield from self._ratelimited_send_generator(request)
         else:
-            request = self.client.build_request("GET", url, params=params)
+            request = self.client.build_request(
+                "GET", url, params=params, timeout=timeout
+            )
             logger.debug(request.url)
             resp = yield from self._ratelimited_send_generator(
                 request, stream=iter_lines or iter_content
@@ -637,6 +642,7 @@ class SpaceTrackClient:
         iter_content=False,
         controller=None,
         parse_types=False,
+        timeout=USE_CLIENT_DEFAULT,
         **kwargs,
     ):
         r"""Generic Space-Track query.
@@ -670,6 +676,8 @@ class SpaceTrackClient:
             parse_types: Parse string values in response according to type given
                 in predicate information, e.g. ``'2017-01-01'`` ->
                 ``datetime.date(2017, 1, 1)``.
+            timeout: Override default client timeout for this request. See
+                `HTTPX Timeouts`_.
             **kwargs: These keywords must match the predicate fields on
                 Space-Track. You may check valid keywords with the following
                 snippet:
@@ -697,6 +705,8 @@ class SpaceTrackClient:
 
                 Passing ``format='json'`` will return the JSON **unparsed**. Do
                 not set ``format`` if you want the parsed JSON object returned!
+
+        .. _`HTTPX Timeouts`: https://www.python-httpx.org/advanced/timeouts/
         """
         return self._run_event_generator(
             self._generic_request_generator(
@@ -705,6 +715,7 @@ class SpaceTrackClient:
                 iter_content=iter_content,
                 controller=controller,
                 parse_types=parse_types,
+                timeout=timeout,
                 **kwargs,
             )
         )
