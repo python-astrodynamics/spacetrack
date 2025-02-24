@@ -51,7 +51,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         cache_path=None,
     ):
         if httpx_client is None:
-            httpx_client = httpx.AsyncClient()
+            httpx_client = httpx.AsyncClient(timeout=30)
         elif not isinstance(httpx_client, httpx.AsyncClient):
             raise TypeError("httpx_client must be an httpx.AsyncClient instance")
         super().__init__(

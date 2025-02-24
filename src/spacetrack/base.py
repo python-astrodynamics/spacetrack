@@ -323,7 +323,7 @@ class SpaceTrackClient:
         cache_path=None,
     ):
         if httpx_client is None:
-            httpx_client = httpx.Client()
+            httpx_client = httpx.Client(timeout=30)
         self.client = httpx_client
         self.identity = identity
         self.password = password
