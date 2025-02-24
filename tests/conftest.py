@@ -24,15 +24,10 @@ def respx_mock(respx_router):
 
 @pytest.fixture(autouse=True)
 def temporary_cache_dir(monkeypatch, tmp_path):
-    class MockPlatformDirs:
-        def __init__(self, appname):
-            pass
+    def user_cache_path(appname):
+        return tmp_path
 
-        @property
-        def user_cache_path(self):
-            return tmp_path
-
-    with patch("spacetrack.base.PlatformDirs", MockPlatformDirs):
+    with patch("spacetrack.base.user_cache_path", user_cache_path):
         yield
 
 

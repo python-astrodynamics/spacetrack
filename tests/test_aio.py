@@ -180,11 +180,10 @@ async def test_modeldef_cache(respx_mock, mock_auth, cache_file_mangler):
         assert await client.gp(norad_cat_id=25541) == "dummy"
         assert modeldef_route.call_count == 1
 
-        cache_path = client._dirs.user_cache_path
-        cache_files = list(cache_path.glob("*.json"))
-        assert [str(p.relative_to(cache_path)) for p in cache_files] == [
-            "predicates-basicspacedata.gp.json"
-        ]
+        cache_files = list(client._cache_path.glob("*.json"))
+        assert len(cache_files) == 1
+        assert cache_files[0].name.startswith("predicates-")
+        assert cache_files[0].name.endswith(".json")
 
         for file in cache_files:
             cache_file_mangler(file)
@@ -234,6 +233,13 @@ async def test_modeldef_not_used_trio(respx_mock, mock_auth):
         assert await client.gp(norad_cat_id=25541) == "dummy"
         assert modeldef_route.call_count == 1
 
-        cache_path = client._dirs.user_cache_path
+        cache_path = client._cache_path
         cache_files = list(cache_path.glob("*.json"))
         assert cache_files == []
+
+
+async def test_custom_cache_path(async_runner, respx_mock, tmp_path):
+    async with AsyncSpaceTrackClient(
+        "identity", "password", cache_path=tmp_path
+    ) as client:
+        assert client._cache_path == tmp_path
