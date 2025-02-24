@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import sys
@@ -18,7 +19,7 @@ import httpx
 import outcome
 from filelock import FileLock
 from logbook import Logger
-from platformdirs import PlatformDirs
+from platformdirs import user_cache_path
 from represent import ReprHelper, ReprHelperMixin
 from rush.limiters.periodic import PeriodicLimiter
 from rush.quota import Quota
@@ -179,6 +180,7 @@ class SpaceTrackClient:
             for a proxy).
         additional_rate_limit: Optionally, a :class:`rush.quota.Quota` if you
             want to restrict the rate limit further than the defaults.
+        cache_path: Optionally, which directory to use for the cache.
 
     For more information, refer to the `Space-Track documentation`_.
 
@@ -318,6 +320,7 @@ class SpaceTrackClient:
         rush_key_prefix="",
         httpx_client=None,
         additional_rate_limit=None,
+        cache_path=None,
     ):
         if httpx_client is None:
             httpx_client = httpx.Client()
@@ -363,7 +366,10 @@ class SpaceTrackClient:
         else:
             raise TypeError("additional_rate_limit must be a rush.quota.Quota")
 
-        self._dirs = PlatformDirs("spacetrack")
+        if cache_path is None:
+            self._cache_path = user_cache_path("spacetrack")
+        else:
+            self._cache_path = Path(cache_path)
 
         self._setup_finalizer()
 
@@ -850,16 +856,17 @@ class SpaceTrackClient:
         key = f"{controller}.{class_}"
 
         if key not in self._predicates or (force and self._predicates[key] is None):
-            cache_path = self._dirs.user_cache_path
-
-            cache_file = cache_path / f"predicates-{key}.json"
-
+            hasher = hashlib.sha256()
+            hasher.update(self.base_url.encode())
+            hasher.update(key.encode())
+            hashkey = hasher.hexdigest()[:16]
+            cache_file = self._cache_path / f"predicates-{hashkey}.json"
             predicates_data = self._read_cache_file(
                 cache_file, PREDICATE_CACHE_EXPIRY_TIME
             )
 
             if predicates_data is None:
-                cache_path.mkdir(parents=True, exist_ok=True)
+                self._cache_path.mkdir(parents=True, exist_ok=True)
 
                 lock_file = cache_file.with_name(cache_file.name + ".lock")
                 lock = self._file_lock_cls(lock_file)

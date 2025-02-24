@@ -48,6 +48,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         rush_key_prefix="",
         httpx_client=None,
         additional_rate_limit=None,
+        cache_path=None,
     ):
         if httpx_client is None:
             httpx_client = httpx.AsyncClient()
@@ -61,6 +62,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             rush_key_prefix=rush_key_prefix,
             httpx_client=httpx_client,
             additional_rate_limit=additional_rate_limit,
+            cache_path=cache_path,
         )
 
     def _setup_finalizer(self):
