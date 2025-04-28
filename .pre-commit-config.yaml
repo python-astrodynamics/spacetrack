@@ -10,7 +10,7 @@ repos:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: v3.5.2
+    rev: v3.5.3
     hooks:
       - id: prettier
   - repo: https://github.com/pycqa/doc8
@@ -19,13 +19,13 @@ repos:
       - id: doc8
         exclude: README\.rst
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.7 # also update pyproject.toml
+    rev: v0.11.7 # also update pyproject.toml
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.6.2
+    rev: 0.6.17
     hooks:
       - id: uv-lock
       - id: uv-export
@@ -34,4 +34,5 @@ repos:
           - --no-dev
           - --group=docs
           - --no-emit-project
+          - --no-annotate
           - --output-file=docs/requirements.txt
