@@ -19,13 +19,13 @@ repos:
       - id: doc8
         exclude: README\.rst
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.7 # also update pyproject.toml
+    rev: v0.11.8 # also update pyproject.toml
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.6.17
+    rev: 0.7.2
     hooks:
       - id: uv-lock
       - id: uv-export
