@@ -93,6 +93,10 @@ select = [
     "E4", "E7", "E9", "F", # ruff defaults
     "I", # isort
     "UP", # pyupgrade
+    "RUF", # ruff
+]
+ignore = [
+    "RUF012",
 ]
 
 [tool.doc8]
