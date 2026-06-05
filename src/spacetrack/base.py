@@ -776,7 +776,7 @@ class SpaceTrackClient:
         return resp
 
     def _ratelimit_callback(self, until):
-        duration = int(round(until - time.monotonic()))
+        duration = round(until - time.monotonic())
         logger.info("Rate limit reached. Sleeping for {:d} seconds.", duration)
 
         if self.callback is not None:

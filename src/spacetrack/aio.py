@@ -65,6 +65,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             additional_rate_limit=additional_rate_limit,
             cache_path=cache_path,
         )
+        self._ratelimit_tasks = set()
 
     def _setup_finalizer(self):
         self._finalizer = weakref.finalize(
@@ -238,7 +239,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         )
 
     async def _ratelimit_callback(self, until):
-        duration = int(round(until - time.monotonic()))
+        duration = round(until - time.monotonic())
         logger.info("Rate limit reached. Sleeping for {:d} seconds.", duration)
 
         if self.callback is not None:
@@ -253,7 +254,9 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
     async def _ratelimit_wait_asyncio(self, duration):
         until = time.monotonic() + duration
-        asyncio.ensure_future(self._ratelimit_callback(until))
+        task = asyncio.create_task(self._ratelimit_callback(until))
+        self._ratelimit_tasks.add(task)
+        task.add_done_callback(self._ratelimit_tasks.discard)
         await asyncio.sleep(duration)
 
     async def _ratelimit_wait_trio(self, duration):
