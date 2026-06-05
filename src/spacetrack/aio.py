@@ -174,8 +174,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
         .. code-block:: python
 
-            st.tle_publish(*args, **kw)
-            st.basicspacedata.tle_publish(*args, **kw)
+            st.gp_history(*args, **kw)
+            st.basicspacedata.gp_history(*args, **kw)
             st.file(*args, **kw)
             st.fileshare.file(*args, **kw)
             st.spephemeris.file(*args, **kw)
@@ -184,8 +184,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
         .. code-block:: python
 
-            st.generic_request('tle_publish', *args, **kw)
-            st.generic_request('tle_publish', *args, controller='basicspacedata', **kw)
+            st.generic_request('gp_history', *args, **kw)
+            st.generic_request('gp_history', *args, controller='basicspacedata', **kw)
             st.generic_request('file', *args, **kw)
             st.generic_request('file', *args, controller='fileshare', **kw)
             st.generic_request('file', *args, controller='spephemeris', **kw)
@@ -205,9 +205,9 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                 .. code-block:: python
 
                     spacetrack = SpaceTrackClient(...)
-                    spacetrack.tle.get_predicates()
+                    spacetrack.gp_history.get_predicates()
                     # or
-                    spacetrack.get_predicates('tle')
+                    spacetrack.get_predicates('gp_history')
 
                 See :func:`~spacetrack.operators._stringify_predicate_value` for
                 which Python objects are converted appropriately.

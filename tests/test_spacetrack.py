@@ -41,16 +41,16 @@ def test_iter_content_generator():
 
 def test_generic_request_exceptions(client, mock_auth, mock_predicates_empty):
     with pytest.raises(ValueError):
-        client.generic_request(class_="tle", iter_lines=True, iter_content=True)
+        client.generic_request(class_="gp", iter_lines=True, iter_content=True)
 
     with pytest.raises(ValueError):
         client.generic_request(class_="thisclassdoesnotexist")
 
     with pytest.raises(TypeError):
-        client.generic_request("tle", madeupkeyword=None)
+        client.generic_request("gp", madeupkeyword=None)
 
     with pytest.raises(ValueError):
-        client.generic_request(class_="tle", controller="nonsense")
+        client.generic_request(class_="gp", controller="nonsense")
 
     with pytest.raises(ValueError):
         client.generic_request(class_="nonsense", controller="basicspacedata")
@@ -61,7 +61,7 @@ def test_generic_request_exceptions(client, mock_auth, mock_predicates_empty):
 
 def test_get_predicates_exceptions(client):
     with pytest.raises(ValueError):
-        client.get_predicates(class_="tle", controller="nonsense")
+        client.get_predicates(class_="gp", controller="nonsense")
 
     with pytest.raises(ValueError):
         client.get_predicates(class_="nonsense", controller="basicspacedata")
@@ -71,24 +71,24 @@ def test_get_predicates(client):
     patch_get_predicates = patch.object(SpaceTrackClient, "get_predicates")
 
     with patch_get_predicates as mock_get_predicates:
-        client.tle.get_predicates()
-        client.basicspacedata.tle.get_predicates()
-        client.basicspacedata.get_predicates("tle")
-        client.get_predicates("tle")
-        client.get_predicates("tle", "basicspacedata")
+        client.gp.get_predicates()
+        client.basicspacedata.gp.get_predicates()
+        client.basicspacedata.get_predicates("gp")
+        client.get_predicates("gp")
+        client.get_predicates("gp", "basicspacedata")
 
         expected_calls = [
-            call(class_="tle", controller="basicspacedata"),
-            call(class_="tle", controller="basicspacedata"),
-            call(class_="tle", controller="basicspacedata"),
-            call("tle"),
-            call("tle", "basicspacedata"),
+            call(class_="gp", controller="basicspacedata"),
+            call(class_="gp", controller="basicspacedata"),
+            call(class_="gp", controller="basicspacedata"),
+            call("gp"),
+            call("gp", "basicspacedata"),
         ]
 
         assert mock_get_predicates.call_args_list == expected_calls
 
 
-def test_generic_request(respx_mock, client, mock_auth, mock_tle_publish_predicates):
+def test_generic_request(respx_mock, client, mock_auth, mock_gp_predicates):
     tle = (
         "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927\r\n"
         "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537\r\n"
@@ -96,29 +96,25 @@ def test_generic_request(respx_mock, client, mock_auth, mock_tle_publish_predica
 
     normalised_tle = tle.replace("\r\n", "\n")
 
-    respx_mock.get("basicspacedata/query/class/tle_publish/format/tle").respond(
-        text=tle
-    )
+    respx_mock.get("basicspacedata/query/class/gp/format/tle").respond(text=tle)
 
-    assert client.tle_publish(format="tle") == normalised_tle
+    assert client.gp(format="tle") == normalised_tle
 
-    lines = list(client.tle_publish(iter_lines=True, format="tle"))
+    lines = list(client.gp(iter_lines=True, format="tle"))
 
     assert lines == [
         "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927",
         "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537",
     ]
 
-    respx_mock.get("basicspacedata/query/class/tle_publish").respond(json={"a": 5})
+    respx_mock.get("basicspacedata/query/class/gp").respond(json={"a": 5})
 
-    result = client.tle_publish()
+    result = client.gp()
     assert result["a"] == 5
 
-    respx_mock.get("basicspacedata/query/class/tle_publish").respond(
-        stream=[b"abc", b"def"]
-    )
+    respx_mock.get("basicspacedata/query/class/gp").respond(stream=[b"abc", b"def"])
 
-    result = list(client.tle_publish(iter_content=True))
+    result = list(client.gp(iter_content=True))
 
     assert "".join(result) == "abcdef"
 
@@ -147,8 +143,8 @@ def test_bytes_response(client, respx_mock, mock_auth, mock_download_predicates)
     assert b"".join(result) == b"abcdef"
 
 
-def test_ratelimit_error(client, respx_mock, mock_auth, mock_tle_publish_predicates):
-    route = respx_mock.get("basicspacedata/query/class/tle_publish").mock(
+def test_ratelimit_error(client, respx_mock, mock_auth, mock_gp_predicates):
+    route = respx_mock.get("basicspacedata/query/class/gp").mock(
         side_effect=[
             httpx.Response(500, text="violated your query rate limit"),
             httpx.Response(200, json={"a": 1}),
@@ -160,7 +156,7 @@ def test_ratelimit_error(client, respx_mock, mock_auth, mock_tle_publish_predica
 
     # Do it first without our own callback, then with.
 
-    assert client.tle_publish() == {"a": 1}
+    assert client.gp() == {"a": 1}
     assert route.call_count == 2
     assert route.calls[0].response.status_code == 500
 
@@ -173,28 +169,26 @@ def test_ratelimit_error(client, respx_mock, mock_auth, mock_tle_publish_predica
         httpx.Response(200, json={"a": 1}),
     ]
 
-    assert client.tle_publish() == {"a": 1}
+    assert client.gp() == {"a": 1}
     assert route.call_count == 2
     assert route.calls[0].response.status_code == 500
 
     assert mock_callback.call_count == 1
 
 
-def test_non_ratelimit_error(
-    client, respx_mock, mock_auth, mock_tle_publish_predicates
-):
+def test_non_ratelimit_error(client, respx_mock, mock_auth, mock_gp_predicates):
     # Change ratelimiter period to speed up test
     client._per_minute_throttle.rate = Quota.per_second(30)
 
     mock_callback = Mock()
     client.callback = mock_callback
 
-    respx_mock.get("basicspacedata/query/class/tle_publish").respond(
+    respx_mock.get("basicspacedata/query/class/gp").respond(
         500, text="some other error"
     )
 
     with pytest.raises(httpx.HTTPStatusError):
-        client.tle_publish()
+        client.gp()
 
     assert not mock_callback.called
 
@@ -287,7 +281,7 @@ def test_predicate_parse_modeldef(client):
 
 
 def test_bare_spacetrack_methods(client):
-    """Verify that e.g. client.tle_publish calls client.generic_request('tle_publish')"""
+    """Verify that e.g. client.gp calls client.generic_request('gp')"""
     seen = set()
     with patch.object(SpaceTrackClient, "generic_request") as mock_generic_request:
         for controller, classes in client.request_controllers.items():
@@ -441,7 +435,6 @@ def test_dir(client):
         "launch_site",
         "maneuver",
         "maneuver_history",
-        "omm",
         "organization",
         "password",
         "publicfiles",
@@ -451,9 +444,6 @@ def test_dir(client):
         "satellite",
         "spephemeris",
         "tip",
-        "tle",
-        "tle_latest",
-        "tle_publish",
         "upload",
     ]
 
@@ -479,7 +469,7 @@ def test_predicate_parse_type(predicate, input, output):
 
 
 def test_parse_types(client, respx_mock, mock_auth):
-    respx_mock.get("basicspacedata/modeldef/class/tle_publish").respond(
+    respx_mock.get("basicspacedata/modeldef/class/gp").respond(
         json={
             "controller": "basicspacedata",
             "data": [
@@ -519,7 +509,7 @@ def test_parse_types(client, respx_mock, mock_auth):
         },
     )
 
-    respx_mock.get("basicspacedata/query/class/tle_publish").respond(
+    respx_mock.get("basicspacedata/query/class/gp").respond(
         json=[
             {
                 # Test a type that is parsed.
@@ -534,13 +524,13 @@ def test_parse_types(client, respx_mock, mock_auth):
         ],
     )
 
-    (result,) = client.tle_publish(parse_types=True)
+    (result,) = client.gp(parse_types=True)
     assert result["PUBLISH_EPOCH"] == dt.datetime(2017, 1, 2, 3, 4, 5)
     assert result["TLE_LINE1"] == "The quick brown fox jumps over the lazy dog."
     assert result["OTHER_FIELD"] == "Spam and eggs."
 
     with pytest.raises(ValueError) as exc_info:
-        client.tle_publish(format="tle", parse_types=True)
+        client.gp(format="tle", parse_types=True)
 
     assert "parse_types" in exc_info.value.args[0]
 

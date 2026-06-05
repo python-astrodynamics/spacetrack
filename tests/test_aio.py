@@ -33,31 +33,35 @@ async def test_get_predicates_calls(async_runner, client):
     patch_get_predicates = patch.object(client, "get_predicates")
 
     with patch_get_predicates as mock_get_predicates:
-        await client.tle.get_predicates()
-        await client.basicspacedata.tle.get_predicates()
-        await client.basicspacedata.get_predicates("tle")
-        await client.get_predicates("tle")
-        await client.get_predicates("tle", "basicspacedata")
+        await client.gp.get_predicates()
+        await client.basicspacedata.gp.get_predicates()
+        await client.basicspacedata.get_predicates("gp")
+        await client.get_predicates("gp")
+        await client.get_predicates("gp", "basicspacedata")
 
         expected_calls = [
-            call(class_="tle", controller="basicspacedata"),
-            call(class_="tle", controller="basicspacedata"),
-            call(class_="tle", controller="basicspacedata"),
-            call("tle"),
-            call("tle", "basicspacedata"),
+            call(class_="gp", controller="basicspacedata"),
+            call(class_="gp", controller="basicspacedata"),
+            call(class_="gp", controller="basicspacedata"),
+            call("gp"),
+            call("gp", "basicspacedata"),
         ]
 
         assert mock_get_predicates.await_args_list == expected_calls
 
 
-async def test_get_predicates(
-    async_runner, client, mock_auth, mock_tle_publish_predicates
-):
-    assert len(await client.tle_publish.get_predicates()) == 3
+async def test_get_predicates(async_runner, client, mock_auth, mock_gp_predicates):
+    predicates = await client.gp.get_predicates()
+
+    assert {predicate.name for predicate in predicates} >= {
+        "ccsds_omm_vers",
+        "creation_date",
+        "norad_cat_id",
+    }
 
 
 async def test_generic_request(
-    client, async_runner, respx_mock, mock_auth, mock_tle_publish_predicates
+    client, async_runner, respx_mock, mock_auth, mock_gp_predicates
 ):
     tle = (
         "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927\r\n"
@@ -66,15 +70,13 @@ async def test_generic_request(
 
     normalised_tle = tle.replace("\r\n", "\n")
 
-    respx_mock.get("basicspacedata/query/class/tle_publish/format/tle").respond(
-        text=tle
-    )
+    respx_mock.get("basicspacedata/query/class/gp/format/tle").respond(text=tle)
 
-    assert await client.tle_publish(format="tle") == normalised_tle
+    assert await client.gp(format="tle") == normalised_tle
 
-    respx_mock.get("basicspacedata/query/class/tle_publish").respond(json={"a": 5})
+    respx_mock.get("basicspacedata/query/class/gp").respond(json={"a": 5})
 
-    result = await client.tle_publish()
+    result = await client.gp()
     assert result["a"] == 5
 
 
@@ -110,11 +112,11 @@ async def test_iter_content_generator(async_runner):
 
 
 async def test_ratelimit_error(
-    async_runner, client, respx_mock, mock_auth, mock_tle_publish_predicates
+    async_runner, client, respx_mock, mock_auth, mock_gp_predicates
 ):
     from unittest.mock import AsyncMock
 
-    route = respx_mock.get("basicspacedata/query/class/tle_publish").mock(
+    route = respx_mock.get("basicspacedata/query/class/gp").mock(
         side_effect=[
             httpx.Response(500, text="violated your query rate limit"),
             httpx.Response(200, json={"a": 1}),
@@ -126,7 +128,7 @@ async def test_ratelimit_error(
 
     # Do it first without our own callback, then with.
 
-    assert await client.tle_publish() == {"a": 1}
+    assert await client.gp() == {"a": 1}
     assert route.call_count == 2
     assert route.calls[0].response.status_code == 500
 
@@ -139,7 +141,7 @@ async def test_ratelimit_error(
         httpx.Response(200, json={"a": 1}),
     ]
 
-    assert await client.tle_publish() == {"a": 1}
+    assert await client.gp() == {"a": 1}
     assert route.call_count == 2
     assert route.calls[0].response.status_code == 500
 

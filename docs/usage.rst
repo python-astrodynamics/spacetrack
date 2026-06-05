@@ -12,7 +12,7 @@ Usage
 
 Request classes are presented as methods on the
 :class:`~spacetrack.base.SpaceTrackClient` object. For example,
-``st.tle_publish()``. Each request class is part of a request controller.
+``st.gp_history()``. Each request class is part of a request controller.
 Since most request classes are only part of one request controller,
 ``spacetrack`` looks up the controller for you. It can be specified explicitly
 in several ways. All the following are equivalent:
