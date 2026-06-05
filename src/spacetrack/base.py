@@ -235,14 +235,10 @@ class SpaceTrackClient:
         "gp",
         "gp_history",
         "launch_site",
-        "omm",
         "satcat",
         "satcat_change",
         "satcat_debut",
         "tip",
-        "tle",
-        "tle_latest",
-        "tle_publish",
     }
 
     request_controllers["expandedspacedata"] = {
@@ -282,14 +278,7 @@ class SpaceTrackClient:
         ("dirs", "publicfiles"): set(),
         ("download", "publicfiles"): set(),
     }
-    deprecated_controllers = {
-        "basicspacedata": {
-            "tle",
-            "tle_latest",
-            "tle_publish",
-            "omm",
-        },
-    }
+    deprecated_controllers = {}
     param_fields = {
         ("download", "publicfiles"): {"name"},
     }
@@ -652,8 +641,8 @@ class SpaceTrackClient:
 
         .. code-block:: python
 
-            st.tle_publish(*args, **kw)
-            st.basicspacedata.tle_publish(*args, **kw)
+            st.gp_history(*args, **kw)
+            st.basicspacedata.gp_history(*args, **kw)
             st.file(*args, **kw)
             st.fileshare.file(*args, **kw)
             st.spephemeris.file(*args, **kw)
@@ -662,8 +651,8 @@ class SpaceTrackClient:
 
         .. code-block:: python
 
-            st.generic_request('tle_publish', *args, **kw)
-            st.generic_request('tle_publish', *args, controller='basicspacedata', **kw)
+            st.generic_request('gp_history', *args, **kw)
+            st.generic_request('gp_history', *args, controller='basicspacedata', **kw)
             st.generic_request('file', *args, **kw)
             st.generic_request('file', *args, controller='fileshare', **kw)
             st.generic_request('file', *args, controller='spephemeris', **kw)
@@ -685,9 +674,9 @@ class SpaceTrackClient:
                 .. code-block:: python
 
                     spacetrack = SpaceTrackClient(...)
-                    spacetrack.tle.get_predicates()
+                    spacetrack.gp_history.get_predicates()
                     # or
-                    spacetrack.get_predicates('tle')
+                    spacetrack.get_predicates('gp_history')
 
                 See :func:`~spacetrack.operators._stringify_predicate_value` for
                 which Python objects are converted appropriately.
