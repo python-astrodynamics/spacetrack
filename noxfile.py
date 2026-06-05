@@ -3,16 +3,13 @@ import nox
 nox.options.reuse_existing_virtualenvs = True
 nox.options.default_venv_backend = "uv"
 
+PYPROJECT = nox.project.load_toml("pyproject.toml")
+PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
+
 
 @nox.session(python="3.13")
 def docs(session: nox.Session) -> None:
-    session.run_install(
-        "uv",
-        "sync",
-        "--no-dev",
-        "--group=docstest",
-        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
-    )
+    session.run_install("uv", "sync", "--no-default-groups", "--group=docstest")
 
     temp_dir = session.create_tmp()
     session.run(
@@ -28,23 +25,14 @@ def docs(session: nox.Session) -> None:
     session.run("doc8", "docs/")
 
 
-@nox.session(python=["3.9", "3.10", "3.11", "3.12", "3.13"])
+@nox.session(python=PYTHON_VERSIONS)
 def tests(session: nox.Session) -> None:
     session.run_install(
         "uv",
         "sync",
-        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+        "--no-default-groups",
+        "--group=coverage",
+        "--group=test",
     )
 
-    if session.posargs:
-        tests = session.posargs
-    else:
-        tests = ["tests/"]
-
-    session.run(
-        "coverage",
-        "run",
-        "-m",
-        "pytest",
-        *tests,
-    )
+    session.run("coverage", "run", "-m", "pytest", *session.posargs)
