@@ -81,7 +81,8 @@ towncrier = [
 
 [tool.coverage.run]
 branch = true
-source = ["spacetrack", "tests/"]
+relative_files = true
+source = ["src/spacetrack", "tests/"]
 parallel = true
 
 [tool.coverage.paths]
@@ -89,7 +90,13 @@ source = ["src/spacetrack", ".nox/**/site-packages/spacetrack"]
 
 [tool.coverage.report]
 precision = 1
-exclude_lines = ["pragma: no cover", "^\\s*pass\\s*$"]
+exclude_also = [
+    '^\s*pass$',
+    '^\s*raise NotImplementedError\b',
+    '^\s*return NotImplemented\b',
+    '^\s*raise$',
+    '^\s*(case _:\n\s*)?(typing\.)?assert_never\(',
+]
 
 [tool.pytest]
 addopts = ["-r", "s"]
