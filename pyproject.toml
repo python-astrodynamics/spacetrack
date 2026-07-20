@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "spacetrack"
@@ -8,13 +8,12 @@ version = "1.4.0"
 description = "Python client for space-track.org"
 readme = "README.rst"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
     { name = "Frazer McLean", email = "frazer@frazermclean.co.uk" },
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -72,12 +71,6 @@ test = [
 ]
 
 
-[tool.setuptools]
-package-dir = { "" = "src" }
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
 [tool.coverage.run]
 branch = true
 source = ["spacetrack", "tests/"]
@@ -109,6 +102,3 @@ ignore = [
 [tool.doc8]
 ignore-path = ["docs/_build"]
 ignore = ["D001"]
-
-[tool.check-sdist]
-git-only = [".gitignore"]
