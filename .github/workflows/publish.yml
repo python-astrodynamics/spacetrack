@@ -1,0 +1,64 @@
+name: Upload Python Package
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: publish
+      url: https://pypi.org/p/spacetrack
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.x"
+      - name: Build
+        run: "uv build"
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # v1.14.1
+
+  release:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Extract release notes
+        run: |
+          awk -v version="$GITHUB_REF_NAME" '
+            index($0, "/releases/tag/" version ">`_ - ") { found = 1; skip_underline = 1; next }
+            found && skip_underline { skip_underline = 0; next }
+            found && /^[0-9][^ ]*_ - [0-9]{4}-[0-9]{2}-[0-9]{2}$/ { exit }
+            found && /\/releases\/tag\/[^>]+>`_ - [0-9]{4}-[0-9]{2}-[0-9]{2}$/ { exit }
+            found { print }
+            END { if (!found) exit 1 }
+          ' docs/changelog.rst > release-notes.rst
+          grep -q '[^[:space:]]' release-notes.rst
+      - name: Create GitHub Release
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.rst
+        env:
+          GH_TOKEN: ${{ github.token }}
