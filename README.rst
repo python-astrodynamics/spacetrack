@@ -3,7 +3,7 @@ spacetrack
 
 |PyPI Version| |Documentation| |CI Status| |Coverage| |Python Version| |MIT License|
 
-spacetrack is a python module for `Space-Track <https://www.space-track.org>`__
+spacetrack is a Python client for `Space-Track <https://www.space-track.org>`__.
 
 Installation
 ~~~~~~~~~~~~
@@ -63,22 +63,22 @@ Documentation
 ~~~~~~~~~~~~~
 
 For in-depth information, `visit the
-documentation <http://spacetrack.readthedocs.org/en/latest/>`__!
+documentation <https://spacetrack.readthedocs.io/en/latest/>`__!
 
 Development
 ~~~~~~~~~~~
 
-spacetrack uses `semantic versioning <http://semver.org>`__
+spacetrack uses `semantic versioning <https://semver.org>`__.
 
-.. |CI Status| image:: https://github.com/python-astrodynamics/spacetrack/workflows/CI/badge.svg?branch=master
-   :target: https://github.com/python-astrodynamics/spacetrack/actions?workflow=CI
-.. |PyPI Version| image:: http://img.shields.io/pypi/v/spacetrack.svg?style=flat-square
-   :target: https://pypi.python.org/pypi/spacetrack/
-.. |Python Version| image:: https://img.shields.io/badge/python-3.6%2B-brightgreen.svg?style=flat-square
-   :target: https://www.python.org/downloads/
-.. |MIT License| image:: http://img.shields.io/badge/license-MIT-blue.svg?style=flat-square
-   :target: https://raw.githubusercontent.com/python-astrodynamics/spacetrack/master/LICENSE.txt
-.. |Coverage| image:: https://img.shields.io/codecov/c/github/python-astrodynamics/spacetrack/master.svg?style=flat-square
-   :target: https://codecov.io/github/python-astrodynamics/spacetrack?branch=master
-.. |Documentation| image:: https://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat-square
-   :target: http://spacetrack.readthedocs.org/en/latest/
+.. |CI Status| image:: https://github.com/python-astrodynamics/spacetrack/actions/workflows/ci.yml/badge.svg?branch=main
+   :target: https://github.com/python-astrodynamics/spacetrack/actions/workflows/ci.yml
+.. |PyPI Version| image:: https://img.shields.io/pypi/v/spacetrack.svg?style=flat-square
+   :target: https://pypi.org/project/spacetrack/
+.. |Python Version| image:: https://img.shields.io/pypi/pyversions/spacetrack.svg?style=flat-square
+   :target: https://pypi.org/project/spacetrack/
+.. |MIT License| image:: https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square
+   :target: https://raw.githubusercontent.com/python-astrodynamics/spacetrack/main/LICENSE.txt
+.. |Coverage| image:: https://codecov.io/gh/python-astrodynamics/spacetrack/branch/main/graph/badge.svg
+   :target: https://codecov.io/gh/python-astrodynamics/spacetrack
+.. |Documentation| image:: https://readthedocs.org/projects/spacetrack/badge/?version=latest
+   :target: https://spacetrack.readthedocs.io/en/latest/

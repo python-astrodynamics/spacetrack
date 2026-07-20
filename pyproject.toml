@@ -34,8 +34,10 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/python-astrodynamics/spacetrack"
 Documentation = "https://spacetrack.readthedocs.io"
+"Source Code" = "https://github.com/python-astrodynamics/spacetrack"
+Issues = "https://github.com/python-astrodynamics/spacetrack/issues"
+Changelog = "https://spacetrack.readthedocs.io/en/latest/changelog.html"
 
 [dependency-groups]
 dev = [
