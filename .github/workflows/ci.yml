@@ -17,15 +17,25 @@ env:
   UV_NO_SYNC: "true"
 
 jobs:
-  pre-commit:
-    name: "pre-commit"
+  lint:
+    name: "lint"
     runs-on: ubuntu-latest
 
     steps:
-      - uses: "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10" # v6.0.3
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
         with:
           persist-credentials: false
-      - uses: "j178/prek-action@bdca6f102f98e2b4c7029491a53dfd366469e33d" # v2.0.4
+      - uses: "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97" # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: "astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9" # v9.0.0
+        with:
+          enable-cache: true
+      - uses: "j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16" # v2.0.6
+      - name: "Check source distribution contents"
+        run: |
+          uv sync --only-group check-sdist
+          uv run check-sdist
 
   tests:
     name: "Python ${{ matrix.python-version }}"
@@ -37,14 +47,14 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-      - uses: "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10" # v6.0.3
+      - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
         with:
           persist-credentials: false
-      - uses: "actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405" # v6.2.0
+      - uses: "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97" # v7.0.0
         with:
           python-version: "${{ matrix.python-version }}"
           allow-prereleases: true
-      - uses: "astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39" # v8.2.0
+      - uses: "astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9" # v9.0.0
         with:
           enable-cache: true
       - name: "Install dependencies"
@@ -52,7 +62,7 @@ jobs:
           python -VV
           python -m site
           uv --version
-          uv sync --only-group nox --only-group coverage
+          uv sync --only-group nox --only-group coverage --no-install-project
       - name: "Run nox targets for ${{ matrix.python-version }}"
         run: "uv run nox --python ${{ matrix.python-version }}"
       - name: "Convert coverage"
@@ -60,18 +70,18 @@ jobs:
           uv run coverage combine
           uv run coverage xml
       - name: "Upload coverage to Codecov"
-        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  required:
+  alls-green:
     name: "all required checks passed"
     runs-on: "ubuntu-latest"
     if: always()
 
     needs:
-      - pre-commit
+      - lint
       - tests
 
     steps:
