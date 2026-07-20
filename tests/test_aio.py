@@ -1,12 +1,17 @@
 from unittest.mock import call, patch
 
-import httpx
+import httpx2
 import pytest
 import pytest_asyncio
 from rush.quota import Quota
 
 from spacetrack import AsyncSpaceTrackClient
 from spacetrack.aio import _iter_content_generator
+from spacetrack.base import BASE_URL
+
+
+def api_url(path):
+    return f"{BASE_URL}{path}"
 
 
 @pytest.fixture(
@@ -20,9 +25,21 @@ def async_runner(request):
 
 
 @pytest_asyncio.fixture
-async def client(respx_mock):
+async def client(httpx2_mock):
     async with AsyncSpaceTrackClient("identity", "password") as st:
         yield st
+
+
+async def test_custom_httpx_client(async_runner):
+    httpx_client = httpx2.AsyncClient()
+
+    async with AsyncSpaceTrackClient(
+        "identity", "password", httpx_client=httpx_client
+    ) as client:
+        assert client.client is httpx_client
+
+    with pytest.raises(TypeError, match=r"httpx2\.AsyncClient"):
+        AsyncSpaceTrackClient("identity", "password", httpx_client=object())
 
 
 async def test_authenticate(client, async_runner, mock_auth):
@@ -61,7 +78,7 @@ async def test_get_predicates(async_runner, client, mock_auth, mock_gp_predicate
 
 
 async def test_generic_request(
-    client, async_runner, respx_mock, mock_auth, mock_gp_predicates
+    client, async_runner, httpx2_mock, mock_auth, mock_gp_predicates
 ):
     tle = (
         "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927\r\n"
@@ -70,11 +87,15 @@ async def test_generic_request(
 
     normalised_tle = tle.replace("\r\n", "\n")
 
-    respx_mock.get("basicspacedata/query/class/gp/format/tle").respond(text=tle)
+    httpx2_mock.add_response(
+        method="GET", url=api_url("basicspacedata/query/class/gp/format/tle"), text=tle
+    )
 
     assert await client.gp(format="tle") == normalised_tle
 
-    respx_mock.get("basicspacedata/query/class/gp").respond(json={"a": 5})
+    httpx2_mock.add_response(
+        method="GET", url=api_url("basicspacedata/query/class/gp"), json={"a": 5}
+    )
 
     result = await client.gp()
     assert result["a"] == 5
@@ -91,7 +112,7 @@ async def test_iter_content_generator(async_runner):
         async for chunk in mock_aiter_bytes():
             yield chunk.decode("utf-8")
 
-    response = httpx.Response(200)
+    response = httpx2.Response(200)
     with patch.object(response, "aiter_text", mock_aiter_text):
         result = [
             c
@@ -112,16 +133,15 @@ async def test_iter_content_generator(async_runner):
 
 
 async def test_ratelimit_error(
-    async_runner, client, respx_mock, mock_auth, mock_gp_predicates
+    async_runner, client, httpx2_mock, mock_auth, mock_gp_predicates
 ):
     from unittest.mock import AsyncMock
 
-    route = respx_mock.get("basicspacedata/query/class/gp").mock(
-        side_effect=[
-            httpx.Response(500, text="violated your query rate limit"),
-            httpx.Response(200, json={"a": 1}),
-        ]
+    url = api_url("basicspacedata/query/class/gp")
+    httpx2_mock.add_response(
+        method="GET", url=url, status_code=500, text="violated your query rate limit"
     )
+    httpx2_mock.add_response(method="GET", url=url, json={"a": 1})
 
     # Change ratelimiter period to speed up test
     client._per_minute_throttle.rate = Quota.per_second(30)
@@ -129,33 +149,39 @@ async def test_ratelimit_error(
     # Do it first without our own callback, then with.
 
     assert await client.gp() == {"a": 1}
-    assert route.call_count == 2
-    assert route.calls[0].response.status_code == 500
+    assert len(httpx2_mock.get_requests(method="GET", url=url)) == 2
 
     mock_callback = AsyncMock()
     client.callback = mock_callback
 
-    route.reset()
-    route.side_effect = [
-        httpx.Response(500, text="violated your query rate limit"),
-        httpx.Response(200, json={"a": 1}),
-    ]
+    httpx2_mock.add_response(
+        method="GET", url=url, status_code=500, text="violated your query rate limit"
+    )
+    httpx2_mock.add_response(method="GET", url=url, json={"a": 1})
 
     assert await client.gp() == {"a": 1}
-    assert route.call_count == 2
-    assert route.calls[0].response.status_code == 500
+    assert len(httpx2_mock.get_requests(method="GET", url=url)) == 4
 
     assert mock_callback.call_count == 1
     mock_callback.assert_awaited()
 
 
 @pytest.mark.asyncio
-async def test_modeldef_cache(respx_mock, mock_auth, cache_file_mangler):
-    respx_mock.get("basicspacedata/query/class/gp/norad_cat_id/25541").respond(
-        json="dummy"
+async def test_modeldef_cache(httpx2_mock, mock_auth, cache_file_mangler):
+    # This test creates three independently authenticated clients.
+    mock_auth()
+    mock_auth()
+
+    query_url = api_url("basicspacedata/query/class/gp/norad_cat_id/25541")
+    httpx2_mock.add_response(
+        method="GET", url=query_url, json="dummy", is_reusable=True
     )
 
-    modeldef_route = respx_mock.get("basicspacedata/modeldef/class/gp").respond(
+    modeldef_url = api_url("basicspacedata/modeldef/class/gp")
+    httpx2_mock.add_response(
+        method="GET",
+        url=modeldef_url,
+        is_reusable=True,
         json={
             "controller": "fileshare",
             "data": [
@@ -173,14 +199,14 @@ async def test_modeldef_cache(respx_mock, mock_auth, cache_file_mangler):
 
     async with AsyncSpaceTrackClient("identity", "password") as client:
         assert await client.gp(norad_cat_id=25541) == "dummy"
-        assert modeldef_route.call_count == 1
+        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
 
         assert await client.gp(norad_cat_id=25541) == "dummy"
-        assert modeldef_route.call_count == 1
+        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
 
     async with AsyncSpaceTrackClient("identity", "password") as client:
         assert await client.gp(norad_cat_id=25541) == "dummy"
-        assert modeldef_route.call_count == 1
+        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
 
         cache_files = list(client._cache_path.glob("*.json"))
         assert len(cache_files) == 1
@@ -193,21 +219,25 @@ async def test_modeldef_cache(respx_mock, mock_auth, cache_file_mangler):
         # Even though cache file is gone, client still has it in memory so there
         # should be no new modeldef request
         assert await client.gp(norad_cat_id=25541) == "dummy"
-        assert modeldef_route.call_count == 1
+        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
 
     async with AsyncSpaceTrackClient("identity", "password") as client:
         # There should be a new modeldef request because we deleted the cache file
         assert await client.gp(norad_cat_id=25541) == "dummy"
-        assert modeldef_route.call_count == 2
+        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 2
 
 
 @pytest.mark.trio
-async def test_modeldef_not_used_trio(respx_mock, mock_auth):
-    respx_mock.get("basicspacedata/query/class/gp/norad_cat_id/25541").respond(
-        json="dummy"
+async def test_modeldef_not_used_trio(httpx2_mock, mock_auth):
+    query_url = api_url("basicspacedata/query/class/gp/norad_cat_id/25541")
+    httpx2_mock.add_response(
+        method="GET", url=query_url, json="dummy", is_reusable=True
     )
 
-    modeldef_route = respx_mock.get("basicspacedata/modeldef/class/gp").respond(
+    modeldef_url = api_url("basicspacedata/modeldef/class/gp")
+    httpx2_mock.add_response(
+        method="GET",
+        url=modeldef_url,
         json={
             "controller": "fileshare",
             "data": [
@@ -225,22 +255,22 @@ async def test_modeldef_not_used_trio(respx_mock, mock_auth):
 
     async with AsyncSpaceTrackClient("identity", "password") as client:
         assert await client.gp(norad_cat_id=25541) == "dummy"
-        assert modeldef_route.call_count == 0
+        assert httpx2_mock.get_requests(method="GET", url=modeldef_url) == []
 
         # If predicates are requested explicitly, they should be cached (in
         # client only) and used
         await client.gp.get_predicates()
-        assert modeldef_route.call_count == 1
+        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
 
         assert await client.gp(norad_cat_id=25541) == "dummy"
-        assert modeldef_route.call_count == 1
+        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
 
         cache_path = client._cache_path
         cache_files = list(cache_path.glob("*.json"))
         assert cache_files == []
 
 
-async def test_custom_cache_path(async_runner, respx_mock, tmp_path):
+async def test_custom_cache_path(async_runner, httpx2_mock, tmp_path):
     async with AsyncSpaceTrackClient(
         "identity", "password", cache_path=tmp_path
     ) as client:

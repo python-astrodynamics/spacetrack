@@ -2,11 +2,11 @@ import asyncio
 import time
 import weakref
 
-import httpx
+import httpx2
 import outcome
 import sniffio
 from filelock import AsyncFileLock
-from httpx import USE_CLIENT_DEFAULT
+from httpx2 import USE_CLIENT_DEFAULT
 
 from .base import (
     BASE_URL,
@@ -35,10 +35,11 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
 
     Refer to the :class:`~spacetrack.base.SpaceTrackClient` documentation for
     more information. Note that if passed, the ``httpx_client`` parameter must
-    be an ``httpx.AsyncClient``.
+    be an ``httpx2.AsyncClient``.
     """
 
     _file_lock_cls = AsyncFileLock
+    _httpx_client_cls = httpx2.AsyncClient
 
     def __init__(
         self,
@@ -51,10 +52,6 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         additional_rate_limit=None,
         cache_path=None,
     ):
-        if httpx_client is None:
-            httpx_client = httpx.AsyncClient(timeout=30)
-        elif not isinstance(httpx_client, httpx.AsyncClient):
-            raise TypeError("httpx_client must be an httpx.AsyncClient instance")
         super().__init__(
             identity=identity,
             password=password,

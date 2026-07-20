@@ -1,8 +1,9 @@
 import datetime as dt
 from unittest.mock import Mock, call, patch
 
-import httpx
+import httpx2
 import pytest
+from pytest_httpx2 import IteratorStream
 from rush.quota import Quota
 
 from spacetrack import (
@@ -10,13 +11,32 @@ from spacetrack import (
     SpaceTrackClient,
     UnknownPredicateTypeWarning,
 )
-from spacetrack.base import Predicate, _iter_content_generator, _raise_for_status
+from spacetrack.base import (
+    BASE_URL,
+    Predicate,
+    _iter_content_generator,
+    _raise_for_status,
+)
+
+
+def api_url(path):
+    return f"{BASE_URL}{path}"
 
 
 @pytest.fixture
-def client(respx_mock):
+def client(httpx2_mock):
     with SpaceTrackClient("identity", "password") as st:
         yield st
+
+
+def test_custom_httpx_client():
+    httpx_client = httpx2.Client()
+
+    with SpaceTrackClient("identity", "password", httpx_client=httpx_client) as client:
+        assert client.client is httpx_client
+
+    with pytest.raises(TypeError, match=r"httpx2\.Client"):
+        SpaceTrackClient("identity", "password", httpx_client=object())
 
 
 def test_iter_content_generator():
@@ -29,7 +49,7 @@ def test_iter_content_generator():
         for chunk in mock_iter_bytes():
             yield chunk.decode("utf-8")
 
-    response = httpx.Response(200)
+    response = httpx2.Response(200)
     with patch.object(response, "iter_text", mock_iter_text):
         result = list(_iter_content_generator(response=response, decode_unicode=True))
         assert result == ["1\n2\n", "3", "\n4", "\n5"]
@@ -88,7 +108,7 @@ def test_get_predicates(client):
         assert mock_get_predicates.call_args_list == expected_calls
 
 
-def test_generic_request(respx_mock, client, mock_auth, mock_gp_predicates):
+def test_generic_request(httpx2_mock, client, mock_auth, mock_gp_predicates):
     tle = (
         "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927\r\n"
         "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537\r\n"
@@ -96,7 +116,12 @@ def test_generic_request(respx_mock, client, mock_auth, mock_gp_predicates):
 
     normalised_tle = tle.replace("\r\n", "\n")
 
-    respx_mock.get("basicspacedata/query/class/gp/format/tle").respond(text=tle)
+    httpx2_mock.add_response(
+        method="GET",
+        url=api_url("basicspacedata/query/class/gp/format/tle"),
+        text=tle,
+        is_reusable=True,
+    )
 
     assert client.gp(format="tle") == normalised_tle
 
@@ -107,12 +132,18 @@ def test_generic_request(respx_mock, client, mock_auth, mock_gp_predicates):
         "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537",
     ]
 
-    respx_mock.get("basicspacedata/query/class/gp").respond(json={"a": 5})
+    httpx2_mock.add_response(
+        method="GET", url=api_url("basicspacedata/query/class/gp"), json={"a": 5}
+    )
 
     result = client.gp()
     assert result["a"] == 5
 
-    respx_mock.get("basicspacedata/query/class/gp").respond(stream=[b"abc", b"def"])
+    httpx2_mock.add_response(
+        method="GET",
+        url=api_url("basicspacedata/query/class/gp"),
+        stream=IteratorStream([b"abc", b"def"]),
+    )
 
     result = list(client.gp(iter_content=True))
 
@@ -124,11 +155,11 @@ def test_predicate_error(client, mock_auth, mock_predicates_empty):
         client.gp(banana=4)
 
 
-def test_bytes_response(client, respx_mock, mock_auth, mock_download_predicates):
+def test_bytes_response(client, httpx2_mock, mock_auth, mock_download_predicates):
     data = b"bytes response \r\n"
 
     url = "fileshare/query/class/download/format/stream"
-    respx_mock.get(url).respond(content=data)
+    httpx2_mock.add_response(method="GET", url=api_url(url), content=data)
 
     assert client.download(format="stream") == data
 
@@ -136,20 +167,21 @@ def test_bytes_response(client, respx_mock, mock_auth, mock_download_predicates)
         client.download(iter_lines=True, format="stream")
 
     # Just use file_id to disambiguate URL from those above
-    respx_mock.get(url).respond(stream=[b"abc", b"def"])
+    httpx2_mock.add_response(
+        method="GET", url=api_url(url), stream=IteratorStream([b"abc", b"def"])
+    )
 
     result = list(client.download(format="stream", iter_content=True))
 
     assert b"".join(result) == b"abcdef"
 
 
-def test_ratelimit_error(client, respx_mock, mock_auth, mock_gp_predicates):
-    route = respx_mock.get("basicspacedata/query/class/gp").mock(
-        side_effect=[
-            httpx.Response(500, text="violated your query rate limit"),
-            httpx.Response(200, json={"a": 1}),
-        ]
+def test_ratelimit_error(client, httpx2_mock, mock_auth, mock_gp_predicates):
+    url = api_url("basicspacedata/query/class/gp")
+    httpx2_mock.add_response(
+        method="GET", url=url, status_code=500, text="violated your query rate limit"
     )
+    httpx2_mock.add_response(method="GET", url=url, json={"a": 1})
 
     # Change ratelimiter period to speed up test
     client._per_minute_throttle.rate = Quota.per_second(30)
@@ -157,37 +189,37 @@ def test_ratelimit_error(client, respx_mock, mock_auth, mock_gp_predicates):
     # Do it first without our own callback, then with.
 
     assert client.gp() == {"a": 1}
-    assert route.call_count == 2
-    assert route.calls[0].response.status_code == 500
+    assert len(httpx2_mock.get_requests(method="GET", url=url)) == 2
 
     mock_callback = Mock()
     client.callback = mock_callback
 
-    route.reset()
-    route.side_effect = [
-        httpx.Response(500, text="violated your query rate limit"),
-        httpx.Response(200, json={"a": 1}),
-    ]
+    httpx2_mock.add_response(
+        method="GET", url=url, status_code=500, text="violated your query rate limit"
+    )
+    httpx2_mock.add_response(method="GET", url=url, json={"a": 1})
 
     assert client.gp() == {"a": 1}
-    assert route.call_count == 2
-    assert route.calls[0].response.status_code == 500
+    assert len(httpx2_mock.get_requests(method="GET", url=url)) == 4
 
     assert mock_callback.call_count == 1
 
 
-def test_non_ratelimit_error(client, respx_mock, mock_auth, mock_gp_predicates):
+def test_non_ratelimit_error(client, httpx2_mock, mock_auth, mock_gp_predicates):
     # Change ratelimiter period to speed up test
     client._per_minute_throttle.rate = Quota.per_second(30)
 
     mock_callback = Mock()
     client.callback = mock_callback
 
-    respx_mock.get("basicspacedata/query/class/gp").respond(
-        500, text="some other error"
+    httpx2_mock.add_response(
+        method="GET",
+        url=api_url("basicspacedata/query/class/gp"),
+        status_code=500,
+        text="some other error",
     )
 
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(httpx2.HTTPStatusError):
         client.gp()
 
     assert not mock_callback.called
@@ -309,25 +341,33 @@ def test_controller_spacetrack_methods(client):
                 assert mock_generic_request.call_args == expected
 
 
-def test_authenticate(respx_mock):
+def test_authenticate(httpx2_mock):
     def request_callback(request):
         if b"wrongpassword" in request.content:
-            return httpx.Response(200, json={"Login": "Failed"})
+            return httpx2.Response(200, json={"Login": "Failed"})
         elif b"unknownresponse" in request.content:
             # Space-Track doesn't respond like this, but make sure anything
             # other than {'Login': 'Failed'} doesn't raise AuthenticationError
-            return httpx.Response(200, json={"Login": "Successful"})
+            return httpx2.Response(200, json={"Login": "Successful"})
         else:
-            return httpx.Response(200, json="")
+            return httpx2.Response(200, json="")
 
-    route = respx_mock.post("ajaxauth/login").mock(side_effect=request_callback)
-    respx_mock.get("ajaxauth/logout").respond(json="Successfully logged out")
+    login_url = api_url("ajaxauth/login")
+    httpx2_mock.add_callback(
+        request_callback, method="POST", url=login_url, is_reusable=True
+    )
+    httpx2_mock.add_response(
+        method="GET",
+        url=api_url("ajaxauth/logout"),
+        json="Successfully logged out",
+        is_reusable=True,
+    )
 
     with SpaceTrackClient("identity", "wrongpassword") as client:
         with pytest.raises(AuthenticationError):
             client.authenticate()
 
-        assert route.call_count == 1
+        assert len(httpx2_mock.get_requests(method="POST", url=login_url)) == 1
 
         client.password = "correctpassword"
         client.authenticate()
@@ -335,57 +375,72 @@ def test_authenticate(respx_mock):
 
         # Check that only one login request was made since successful
         # authentication
-        assert route.call_count == 2
+        assert len(httpx2_mock.get_requests(method="POST", url=login_url)) == 2
 
     with SpaceTrackClient("identity", "unknownresponse") as client:
         client.authenticate()
 
 
-def test_base_url(respx_mock):
-    route = respx_mock.post("https://example.com/ajaxauth/login").respond(json='""')
-    respx_mock.get("https://example.com/ajaxauth/logout").respond(
-        json="Successfully logged out"
+def test_base_url(httpx2_mock):
+    login_url = "https://example.com/ajaxauth/login"
+    httpx2_mock.add_response(method="POST", url=login_url, json='""')
+    httpx2_mock.add_response(
+        method="GET",
+        url="https://example.com/ajaxauth/logout",
+        json="Successfully logged out",
     )
     with SpaceTrackClient(
         "identity", "password", base_url="https://example.com"
     ) as client:
         client.authenticate()
 
-    assert route.call_count == 1
+    assert len(httpx2_mock.get_requests(method="POST", url=login_url)) == 1
 
 
-def test_raise_for_status(respx_mock):
-    respx_mock.get("http://example.com/1").respond(400, json={"error": "problem"})
-    respx_mock.get("http://example.com/2").respond(400, json={"wrongkey": "problem"})
-    respx_mock.get("http://example.com/3").respond(400, json="problem")
-    respx_mock.get("http://example.com/4").respond(400)
+def test_raise_for_status(httpx2_mock):
+    httpx2_mock.add_response(
+        method="GET",
+        url="http://example.com/1",
+        status_code=400,
+        json={"error": "problem"},
+    )
+    httpx2_mock.add_response(
+        method="GET",
+        url="http://example.com/2",
+        status_code=400,
+        json={"wrongkey": "problem"},
+    )
+    httpx2_mock.add_response(
+        method="GET", url="http://example.com/3", status_code=400, json="problem"
+    )
+    httpx2_mock.add_response(method="GET", url="http://example.com/4", status_code=400)
 
-    response1 = httpx.get("http://example.com/1")
-    response2 = httpx.get("http://example.com/2")
-    response3 = httpx.get("http://example.com/3")
-    response4 = httpx.get("http://example.com/4")
+    response1 = httpx2.get("http://example.com/1")
+    response2 = httpx2.get("http://example.com/2")
+    response3 = httpx2.get("http://example.com/3")
+    response4 = httpx2.get("http://example.com/4")
 
-    with pytest.raises(httpx.HTTPStatusError) as exc:
+    with pytest.raises(httpx2.HTTPStatusError) as exc:
         _raise_for_status(response1)
     assert "Space-Track" in str(exc.value)
     assert "\nproblem" in str(exc.value)
 
-    with pytest.raises(httpx.HTTPStatusError) as exc:
+    with pytest.raises(httpx2.HTTPStatusError) as exc:
         _raise_for_status(response2)
     assert "Space-Track" in str(exc.value)
     assert '{"wrongkey":"problem"}' in str(exc.value)
 
-    with pytest.raises(httpx.HTTPStatusError) as exc:
+    with pytest.raises(httpx2.HTTPStatusError) as exc:
         _raise_for_status(response3)
     assert "Space-Track" in str(exc.value)
     assert '\n"problem"' in str(exc.value)
 
-    with pytest.raises(httpx.HTTPStatusError) as exc:
+    with pytest.raises(httpx2.HTTPStatusError) as exc:
         _raise_for_status(response4)
     assert "Space-Track" not in str(exc.value)
 
 
-def test_repr(respx_mock):
+def test_repr(httpx2_mock):
     with SpaceTrackClient("hello@example.com", "mypassword") as client:
         assert repr(client) == "SpaceTrackClient<identity='hello@example.com'>"
         assert "mypassword" not in repr(client)
@@ -468,8 +523,10 @@ def test_predicate_parse_type(predicate, input, output):
     assert predicate.parse(input) == output
 
 
-def test_parse_types(client, respx_mock, mock_auth):
-    respx_mock.get("basicspacedata/modeldef/class/gp").respond(
+def test_parse_types(client, httpx2_mock, mock_auth):
+    httpx2_mock.add_response(
+        method="GET",
+        url=api_url("basicspacedata/modeldef/class/gp"),
         json={
             "controller": "basicspacedata",
             "data": [
@@ -509,7 +566,9 @@ def test_parse_types(client, respx_mock, mock_auth):
         },
     )
 
-    respx_mock.get("basicspacedata/query/class/gp").respond(
+    httpx2_mock.add_response(
+        method="GET",
+        url=api_url("basicspacedata/query/class/gp"),
         json=[
             {
                 # Test a type that is parsed.
@@ -535,11 +594,12 @@ def test_parse_types(client, respx_mock, mock_auth):
     assert "parse_types" in exc_info.value.args[0]
 
 
-def test_params(respx_mock, mock_auth):
+def test_params(httpx2_mock, mock_auth):
     data = b"hello\n"
-    respx_mock.get(
-        "publicfiles/query/class/download", params={"name": "filename.txt"}
-    ).respond(
+    httpx2_mock.add_response(
+        method="GET",
+        url=api_url("publicfiles/query/class/download"),
+        match_params={"name": "filename.txt"},
         content=data,
     )
 
@@ -549,12 +609,21 @@ def test_params(respx_mock, mock_auth):
     assert b"".join(result) == data
 
 
-def test_modeldef_cache(respx_mock, mock_auth, cache_file_mangler):
-    respx_mock.get("basicspacedata/query/class/gp/norad_cat_id/25541").respond(
-        json="dummy"
+def test_modeldef_cache(httpx2_mock, mock_auth, cache_file_mangler):
+    # This test creates three independently authenticated clients.
+    mock_auth()
+    mock_auth()
+
+    query_url = api_url("basicspacedata/query/class/gp/norad_cat_id/25541")
+    httpx2_mock.add_response(
+        method="GET", url=query_url, json="dummy", is_reusable=True
     )
 
-    modeldef_route = respx_mock.get("basicspacedata/modeldef/class/gp").respond(
+    modeldef_url = api_url("basicspacedata/modeldef/class/gp")
+    httpx2_mock.add_response(
+        method="GET",
+        url=modeldef_url,
+        is_reusable=True,
         json={
             "controller": "fileshare",
             "data": [
@@ -572,14 +641,14 @@ def test_modeldef_cache(respx_mock, mock_auth, cache_file_mangler):
 
     with SpaceTrackClient("identity", "password") as client:
         assert client.gp(norad_cat_id=25541) == "dummy"
-        assert modeldef_route.call_count == 1
+        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
 
         assert client.gp(norad_cat_id=25541) == "dummy"
-        assert modeldef_route.call_count == 1
+        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
 
     with SpaceTrackClient("identity", "password") as client:
         assert client.gp(norad_cat_id=25541) == "dummy"
-        assert modeldef_route.call_count == 1
+        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
 
         cache_files = list(client._cache_path.glob("*.json"))
         assert len(cache_files) == 1
@@ -592,12 +661,12 @@ def test_modeldef_cache(respx_mock, mock_auth, cache_file_mangler):
         # Even though cache file is gone, client still has it in memory so there
         # should be no new modeldef request
         assert client.gp(norad_cat_id=25541) == "dummy"
-        assert modeldef_route.call_count == 1
+        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
 
     with SpaceTrackClient("identity", "password") as client:
         # There should be a new modeldef request because we deleted the cache file
         assert client.gp(norad_cat_id=25541) == "dummy"
-        assert modeldef_route.call_count == 2
+        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 2
 
 
 def test_implicit_cleanup_warning():
@@ -605,6 +674,6 @@ def test_implicit_cleanup_warning():
         SpaceTrackClient("identity", "password")
 
 
-def test_custom_cache_path(respx_mock, tmp_path):
+def test_custom_cache_path(httpx2_mock, tmp_path):
     with SpaceTrackClient("identity", "password", cache_path=tmp_path) as client:
         assert client._cache_path == tmp_path

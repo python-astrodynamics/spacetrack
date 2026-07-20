@@ -4,22 +4,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import respx
 
 from spacetrack import SpaceTrackClient
 from spacetrack.base import BASE_URL, CACHE_VERSION, PREDICATE_CACHE_EXPIRY_TIME
 
 
-@pytest.fixture(scope="session")
-def respx_router():
-    # Create an instance of MockRouter with our settings.
-    return respx.mock(assert_all_called=False, base_url=BASE_URL)
-
-
-@pytest.fixture
-def respx_mock(respx_router):
-    with respx_router:
-        yield respx_router
+def api_url(path):
+    return f"{BASE_URL}{path}"
 
 
 @pytest.fixture(autouse=True)
@@ -32,23 +23,41 @@ def temporary_cache_dir(monkeypatch, tmp_path):
 
 
 @pytest.fixture
-def mock_auth(respx_mock):
-    respx_mock.post("ajaxauth/login").respond(json="")
-    respx_mock.get("ajaxauth/logout").respond(json="Successfully logged out")
+def mock_auth(httpx2_mock):
+    def add_auth_responses():
+        httpx2_mock.add_response(
+            method="POST",
+            url=api_url("ajaxauth/login"),
+            json="",
+        )
+        httpx2_mock.add_response(
+            method="GET",
+            url=api_url("ajaxauth/logout"),
+            json="Successfully logged out",
+        )
+
+    add_auth_responses()
+    return add_auth_responses
 
 
 @pytest.fixture
-def mock_predicates_empty(respx_mock):
+def mock_predicates_empty(httpx2_mock):
     for controller, classes in SpaceTrackClient.request_controllers.items():
         for class_ in classes:
-            respx_mock.get(f"{controller}/modeldef/class/{class_}").respond(
-                json={"data": []}
+            httpx2_mock.add_response(
+                method="GET",
+                url=api_url(f"{controller}/modeldef/class/{class_}"),
+                json={"data": []},
+                is_optional=True,
             )
 
 
 @pytest.fixture
-def mock_gp_predicates(respx_mock):
-    respx_mock.get("basicspacedata/modeldef/class/gp").respond(
+def mock_gp_predicates(httpx2_mock):
+    httpx2_mock.add_response(
+        method="GET",
+        url=api_url("basicspacedata/modeldef/class/gp"),
+        is_optional=True,
         json={
             "controller": "basicspacedata",
             "data": [
@@ -378,8 +387,11 @@ def mock_gp_predicates(respx_mock):
 
 
 @pytest.fixture
-def mock_download_predicates(respx_mock):
-    respx_mock.get("fileshare/modeldef/class/download").respond(
+def mock_download_predicates(httpx2_mock):
+    httpx2_mock.add_response(
+        method="GET",
+        url=api_url("fileshare/modeldef/class/download"),
+        is_optional=True,
         json={
             "controller": "fileshare",
             "data": [
