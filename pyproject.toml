@@ -43,6 +43,7 @@ dev = [
     { include-group = "coverage" },
     { include-group = "nox" },
     { include-group = "test" },
+    { include-group = "towncrier" },
     "ruff==0.15.16",
 ]
 check-sdist = [
@@ -68,6 +69,9 @@ test = [
     "pytest-asyncio>=1.4.0",
     "pytest-trio>=0.8.0",
     "respx>=0.23.1",
+]
+towncrier = [
+    "towncrier>=25.8.0",
 ]
 
 
@@ -102,3 +106,28 @@ ignore = [
 [tool.doc8]
 ignore-path = ["docs/_build"]
 ignore = ["D001"]
+
+[tool.towncrier]
+directory = "newsfragments"
+filename = "docs/changelog.rst"
+issue_format = "`#{issue} <https://github.com/python-astrodynamics/spacetrack/issues/{issue}>`_"
+title_format = "`{version} <https://github.com/python-astrodynamics/spacetrack/releases/tag/{version}>`_ - {project_date}"
+underlines = ["-", "~"]
+
+[[tool.towncrier.type]]
+name = "Added"
+
+[[tool.towncrier.type]]
+name = "Changed"
+
+[[tool.towncrier.type]]
+name = "Deprecated"
+
+[[tool.towncrier.type]]
+name = "Removed"
+
+[[tool.towncrier.type]]
+name = "Fixed"
+
+[[tool.towncrier.type]]
+name = "Security"
