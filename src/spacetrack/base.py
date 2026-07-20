@@ -227,7 +227,7 @@ class SpaceTrackClient:
         ]
     )
 
-    request_controllers["basicspacedata"] = {
+    request_controllers["basicspacedata"] = {  # noqa: RUF012
         "announcement",
         "boxscore",
         "cdm_public",
@@ -241,7 +241,7 @@ class SpaceTrackClient:
         "tip",
     }
 
-    request_controllers["expandedspacedata"] = {
+    request_controllers["expandedspacedata"] = {  # noqa: RUF012
         "car",
         "cdm",
         "maneuver",
@@ -250,7 +250,7 @@ class SpaceTrackClient:
         "satellite",
     }
 
-    request_controllers["fileshare"] = {
+    request_controllers["fileshare"] = {  # noqa: RUF012
         "delete",
         "download",
         "file",
@@ -258,33 +258,33 @@ class SpaceTrackClient:
         "upload",
     }
 
-    request_controllers["spephemeris"] = {
+    request_controllers["spephemeris"] = {  # noqa: RUF012
         "download",
         "file",
         "file_history",
     }
 
-    request_controllers["publicfiles"] = {
+    request_controllers["publicfiles"] = {  # noqa: RUF012
         "dirs",
         "download",
     }
 
     # List of (class, controller) tuples for
     # requests which do not return a modeldef
-    offline_predicates = {
+    offline_predicates = {  # noqa: RUF012
         ("download", "fileshare"): {"file_id", "folder_id", "recursive"},
         ("upload", "fileshare"): {"folder_id", "file"},
         ("download", "spephemeris"): set(),
         ("dirs", "publicfiles"): set(),
         ("download", "publicfiles"): set(),
     }
-    deprecated_controllers = {}
-    param_fields = {
+    deprecated_controllers = {}  # noqa: RUF012
+    param_fields = {  # noqa: RUF012
         ("download", "publicfiles"): {"name"},
     }
 
     # These predicates are available for every request class.
-    rest_predicates = {
+    rest_predicates = {  # noqa: RUF012
         Predicate("predicates", "str"),
         Predicate("metadata", "enum", values=("true", "false")),
         Predicate("limit", "str"),

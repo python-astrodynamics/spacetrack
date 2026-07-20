@@ -110,10 +110,6 @@ select = [
     "UP", # pyupgrade
     "RUF", # ruff
 ]
-ignore = [
-    "RUF012",
-]
-
 [tool.doc8]
 ignore-path = ["docs/_build"]
 ignore = ["D001"]
