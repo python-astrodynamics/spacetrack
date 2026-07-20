@@ -1,9 +1,8 @@
 include CHANGELOG.md
 include LICENSE.txt
-include tox.ini
+include uv.lock
 recursive-include tests *.py
 recursive-include docs *
 prune docs/_build
 include .pre-commit-config.yaml
 include .readthedocs.yaml
-include dev-requirements.txt

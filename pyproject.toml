@@ -40,10 +40,14 @@ Documentation = "https://spacetrack.readthedocs.io"
 
 [dependency-groups]
 dev = [
+    { include-group = "check-sdist" },
     { include-group = "coverage" },
     { include-group = "nox" },
     { include-group = "test" },
     "ruff==0.15.16",
+]
+check-sdist = [
+    "check-sdist>=1.5.0",
 ]
 docs = [
     "furo>=2024.8.6",
@@ -105,3 +109,6 @@ ignore = [
 [tool.doc8]
 ignore-path = ["docs/_build"]
 ignore = ["D001"]
+
+[tool.check-sdist]
+git-only = [".gitignore"]
