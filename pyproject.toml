@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "spacetrack"
@@ -8,13 +8,12 @@ version = "1.4.0"
 description = "Python client for space-track.org"
 readme = "README.rst"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
     { name = "Frazer McLean", email = "frazer@frazermclean.co.uk" },
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -35,15 +34,24 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/python-astrodynamics/spacetrack"
 Documentation = "https://spacetrack.readthedocs.io"
+"Source Code" = "https://github.com/python-astrodynamics/spacetrack"
+Issues = "https://github.com/python-astrodynamics/spacetrack/issues"
+Changelog = "https://spacetrack.readthedocs.io/en/latest/changelog.html"
 
 [dependency-groups]
 dev = [
+    { include-group = "check-sdist" },
     { include-group = "coverage" },
+    { include-group = "docs" },
+    { include-group = "docstest" },
     { include-group = "nox" },
     { include-group = "test" },
+    { include-group = "towncrier" },
     "ruff==0.15.16",
+]
+check-sdist = [
+    "check-sdist>=1.5.0",
 ]
 docs = [
     "furo>=2024.8.6",
@@ -66,17 +74,15 @@ test = [
     "pytest-trio>=0.8.0",
     "respx>=0.23.1",
 ]
+towncrier = [
+    "towncrier>=25.8.0",
+]
 
-
-[tool.setuptools]
-package-dir = { "" = "src" }
-
-[tool.setuptools.packages.find]
-where = ["src"]
 
 [tool.coverage.run]
 branch = true
-source = ["spacetrack", "tests/"]
+relative_files = true
+source = ["src/spacetrack", "tests/"]
 parallel = true
 
 [tool.coverage.paths]
@@ -84,7 +90,13 @@ source = ["src/spacetrack", ".nox/**/site-packages/spacetrack"]
 
 [tool.coverage.report]
 precision = 1
-exclude_lines = ["pragma: no cover", "^\\s*pass\\s*$"]
+exclude_also = [
+    '^\s*pass$',
+    '^\s*raise NotImplementedError\b',
+    '^\s*return NotImplemented\b',
+    '^\s*raise$',
+    '^\s*(case _:\n\s*)?(typing\.)?assert_never\(',
+]
 
 [tool.pytest]
 addopts = ["-r", "s"]
@@ -98,10 +110,31 @@ select = [
     "UP", # pyupgrade
     "RUF", # ruff
 ]
-ignore = [
-    "RUF012",
-]
-
 [tool.doc8]
 ignore-path = ["docs/_build"]
 ignore = ["D001"]
+
+[tool.towncrier]
+directory = "newsfragments"
+filename = "docs/changelog.rst"
+issue_format = "`#{issue} <https://github.com/python-astrodynamics/spacetrack/issues/{issue}>`_"
+title_format = "`{version} <https://github.com/python-astrodynamics/spacetrack/releases/tag/{version}>`_ - {project_date}"
+underlines = ["-", "~"]
+
+[[tool.towncrier.type]]
+name = "Added"
+
+[[tool.towncrier.type]]
+name = "Changed"
+
+[[tool.towncrier.type]]
+name = "Deprecated"
+
+[[tool.towncrier.type]]
+name = "Removed"
+
+[[tool.towncrier.type]]
+name = "Fixed"
+
+[[tool.towncrier.type]]
+name = "Security"
