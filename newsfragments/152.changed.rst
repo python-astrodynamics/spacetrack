@@ -1,0 +1,2 @@
+Replace `HTTPX <https://www.python-httpx.org/>`_ with the maintained `HTTPX2 <https://httpx2.pydantic.dev/>`_ fork.
+Users that provide a custom ``httpx_client`` must now pass an ``httpx2.Client`` or ``httpx2.AsyncClient``, and exception handling should catch exceptions from ``httpx2`` instead of ``httpx``.

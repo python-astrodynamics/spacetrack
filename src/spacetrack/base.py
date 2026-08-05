@@ -15,10 +15,10 @@ from pathlib import Path
 from urllib.parse import quote
 
 import attr
-import httpx
+import httpx2
 import outcome
 from filelock import FileLock
-from httpx import USE_CLIENT_DEFAULT
+from httpx2 import USE_CLIENT_DEFAULT
 from logbook import Logger
 from platformdirs import user_cache_path
 from represent import ReprHelper, ReprHelperMixin
@@ -175,8 +175,8 @@ class SpaceTrackClient:
             follow rate limits from multiple instances.
         rush_key_prefix: You may choose a prefix for the keys that will be
             stored in `rush_store`, e.g. to avoid conflicts in a redis db.
-        httpx_client: Provide a custom ``httpx.Client` instance.
-            ``SpaceTrackClient`` takes ownership of the httpx client. You should
+        httpx_client: Provide a custom ``httpx2.Client`` instance.
+            ``SpaceTrackClient`` takes ownership of the HTTPX2 client. You should
             only provide your own client if you need to configure it first (e.g.
             for a proxy).
         additional_rate_limit: Optionally, a :class:`rush.quota.Quota` if you
@@ -300,6 +300,7 @@ class SpaceTrackClient:
     }
 
     _file_lock_cls = FileLock
+    _httpx_client_cls = httpx2.Client
 
     def __init__(
         self,
@@ -313,7 +314,12 @@ class SpaceTrackClient:
         cache_path=None,
     ):
         if httpx_client is None:
-            httpx_client = httpx.Client(timeout=30)
+            httpx_client = self._httpx_client_cls(timeout=30)
+        elif not isinstance(httpx_client, self._httpx_client_cls):
+            raise TypeError(
+                "httpx_client must be an "
+                f"httpx2.{self._httpx_client_cls.__name__} instance"
+            )
         self.client = httpx_client
         self.identity = identity
         self.password = password
@@ -590,7 +596,7 @@ class SpaceTrackClient:
                 request, stream=iter_lines or iter_content
             )
 
-        if httpx.codes.is_error(resp.status_code):
+        if httpx2.codes.is_error(resp.status_code):
             # If we're about to raise an error, fetch the full response in case
             # we're streaming
             yield ReadResponse(resp)
@@ -695,7 +701,7 @@ class SpaceTrackClient:
                 Passing ``format='json'`` will return the JSON **unparsed**. Do
                 not set ``format`` if you want the parsed JSON object returned!
 
-        .. _`HTTPX Timeouts`: https://www.python-httpx.org/advanced/timeouts/
+        .. _`HTTPX Timeouts`: https://httpx2.pydantic.dev/advanced/timeouts/
         """
         return self._run_event_generator(
             self._generic_request_generator(
@@ -1109,13 +1115,13 @@ def _iter_content_generator(response, decode_unicode):
 def _raise_for_status(response):
     """Raise the `HTTPStatusError` if one occurred.
 
-    This is the :meth:`httpx.Response.raise_for_status` method, modified to add
+    This is the :meth:`httpx2.Response.raise_for_status` method, modified to add
     the response from Space-Track, if given.
     """
 
     try:
         response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
+    except httpx2.HTTPStatusError as exc:
         message = exc.args[0]
         spacetrack_error_msg = None
 
@@ -1123,18 +1129,18 @@ def _raise_for_status(response):
             json = response.json()
             if isinstance(json, Mapping):
                 spacetrack_error_msg = json["error"]
-        except (ValueError, KeyError, httpx.ResponseNotRead):
+        except (ValueError, KeyError, httpx2.ResponseNotRead):
             pass
 
         if not spacetrack_error_msg:
             try:
                 spacetrack_error_msg = response.text
-            except httpx.ResponseNotRead:
+            except httpx2.ResponseNotRead:
                 pass
 
         if spacetrack_error_msg:
             message += "\nSpace-Track response:\n" + spacetrack_error_msg
 
-        raise httpx.HTTPStatusError(
+        raise httpx2.HTTPStatusError(
             message, request=exc.request, response=exc.response
         ) from exc
