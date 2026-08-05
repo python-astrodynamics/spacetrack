@@ -183,26 +183,36 @@ def test_ratelimit_error(client, httpx2_mock, mock_auth, mock_gp_predicates):
     )
     httpx2_mock.add_response(method="GET", url=url, json={"a": 1})
 
-    # Change ratelimiter period to speed up test
-    client._per_minute_throttle.rate = Quota.per_second(30)
-
-    # Do it first without our own callback, then with.
-
-    assert client.gp() == {"a": 1}
-    assert len(httpx2_mock.get_requests(method="GET", url=url)) == 2
-
-    mock_callback = Mock()
-    client.callback = mock_callback
-
-    httpx2_mock.add_response(
-        method="GET", url=url, status_code=500, text="violated your query rate limit"
+    # Shrink the rate limit period so that the real _ratelimit_wait
+    # implementation only sleeps briefly.
+    client._per_minute_throttle.rate = Quota(
+        period=dt.timedelta(milliseconds=50), count=30
     )
-    httpx2_mock.add_response(method="GET", url=url, json={"a": 1})
 
-    assert client.gp() == {"a": 1}
-    assert len(httpx2_mock.get_requests(method="GET", url=url)) == 4
+    with patch.object(
+        client, "_ratelimit_wait", wraps=client._ratelimit_wait
+    ) as mock_wait:
+        # Do it first without our own callback, then with.
+
+        assert client.gp() == {"a": 1}
+        assert len(httpx2_mock.get_requests(method="GET", url=url)) == 2
+
+        mock_callback = Mock()
+        client.callback = mock_callback
+
+        httpx2_mock.add_response(
+            method="GET",
+            url=url,
+            status_code=500,
+            text="violated your query rate limit",
+        )
+        httpx2_mock.add_response(method="GET", url=url, json={"a": 1})
+
+        assert client.gp() == {"a": 1}
+        assert len(httpx2_mock.get_requests(method="GET", url=url)) == 4
 
     assert mock_callback.call_count == 1
+    assert mock_wait.call_args_list == [call(0.05), call(0.05)]
 
 
 def test_non_ratelimit_error(client, httpx2_mock, mock_auth, mock_gp_predicates):
