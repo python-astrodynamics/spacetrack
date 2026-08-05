@@ -117,12 +117,6 @@ class ReleaseLock(Event):
     lock = attr.ib()
 
 
-class UnsupportedAsyncLibrary(Exception):
-    """Raised internally when an event cannot be handled with the active async
-    library.
-    """
-
-
 class Predicate(ReprHelperMixin):
     """Hold Space-Track predicate information.
 
@@ -299,7 +293,6 @@ class SpaceTrackClient:
         Predicate("favorites", "str"),
     }
 
-    _file_lock_cls = FileLock
     _httpx_client_cls = httpx2.Client
 
     def __init__(
@@ -876,33 +869,22 @@ class SpaceTrackClient:
                 self._cache_path.mkdir(parents=True, exist_ok=True)
 
                 lock_file = cache_file.with_name(cache_file.name + ".lock")
-                lock = self._file_lock_cls(lock_file)
-                try:
-                    yield AcquireLock(lock)
-                except UnsupportedAsyncLibrary:
-                    if not force:
-                        # The file lock doesn't support Trio, skip predicate
-                        # checking by setting None
-                        self._predicates[key] = None
-                        return self._predicates[key]
-                    lock_acquired = False
-                else:
-                    lock_acquired = True
+                # thread_local=False because the async client acquires and
+                # releases the lock from different worker threads.
+                lock = FileLock(lock_file, thread_local=False)
+                yield AcquireLock(lock)
 
                 try:
-                    if lock_acquired:
-                        predicates_data = self._read_cache_file(
-                            cache_file, PREDICATE_CACHE_EXPIRY_TIME
-                        )
+                    predicates_data = self._read_cache_file(
+                        cache_file, PREDICATE_CACHE_EXPIRY_TIME
+                    )
                     if predicates_data is None:
                         predicates_data = yield from self._download_predicate_data_generator(
                             class_, controller
                         )
-                        if lock_acquired:
-                            self._write_cache_file(cache_file, predicates_data)
+                        self._write_cache_file(cache_file, predicates_data)
                 finally:
-                    if lock_acquired:
-                        yield ReleaseLock(lock)
+                    yield ReleaseLock(lock)
 
             predicate_objects = self._parse_predicates_data(predicates_data)
 

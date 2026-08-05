@@ -177,8 +177,7 @@ async def test_ratelimit_error(
     assert mock_wait.call_args_list == [call(0.05), call(0.05)]
 
 
-@pytest.mark.asyncio
-async def test_modeldef_cache(httpx2_mock, mock_auth, cache_file_mangler):
+async def test_modeldef_cache(async_runner, httpx2_mock, mock_auth, cache_file_mangler):
     # This test creates three independently authenticated clients.
     mock_auth()
     mock_auth()
@@ -236,49 +235,6 @@ async def test_modeldef_cache(httpx2_mock, mock_auth, cache_file_mangler):
         # There should be a new modeldef request because we deleted the cache file
         assert await client.gp(norad_cat_id=25541) == "dummy"
         assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 2
-
-
-@pytest.mark.trio
-async def test_modeldef_not_used_trio(httpx2_mock, mock_auth):
-    query_url = api_url("basicspacedata/query/class/gp/norad_cat_id/25541")
-    httpx2_mock.add_response(
-        method="GET", url=query_url, json="dummy", is_reusable=True
-    )
-
-    modeldef_url = api_url("basicspacedata/modeldef/class/gp")
-    httpx2_mock.add_response(
-        method="GET",
-        url=modeldef_url,
-        json={
-            "controller": "fileshare",
-            "data": [
-                {
-                    "Field": "NORAD_CAT_ID",
-                    "Type": "int(10) unsigned",
-                    "Null": "NO",
-                    "Key": "",
-                    "Default": None,
-                    "Extra": "",
-                },
-            ],
-        },
-    )
-
-    async with AsyncSpaceTrackClient("identity", "password") as client:
-        assert await client.gp(norad_cat_id=25541) == "dummy"
-        assert httpx2_mock.get_requests(method="GET", url=modeldef_url) == []
-
-        # If predicates are requested explicitly, they should be cached (in
-        # client only) and used
-        await client.gp.get_predicates()
-        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
-
-        assert await client.gp(norad_cat_id=25541) == "dummy"
-        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
-
-        cache_path = client._cache_path
-        cache_files = list(cache_path.glob("*.json"))
-        assert cache_files == []
 
 
 async def test_custom_cache_path(async_runner, httpx2_mock, tmp_path):

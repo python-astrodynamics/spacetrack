@@ -1,0 +1,2 @@
+Predicate caching for keyword validation now works when using :class:`~spacetrack.aio.AsyncSpaceTrackClient` with trio.
+Previously, the on-disk cache was skipped because the file locking implementation only supported asyncio.

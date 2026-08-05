@@ -1,11 +1,11 @@
 import time
 import weakref
+from functools import partial
 
 import anyio
 import httpx2
 import outcome
-import sniffio
-from filelock import AsyncFileLock
+from filelock import Timeout
 from httpx2 import USE_CLIENT_DEFAULT
 
 from .base import (
@@ -19,7 +19,6 @@ from .base import (
     ReadResponse,
     ReleaseLock,
     SpaceTrackClient,
-    UnsupportedAsyncLibrary,
     logger,
 )
 
@@ -38,7 +37,6 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
     be an ``httpx2.AsyncClient``.
     """
 
-    _file_lock_cls = AsyncFileLock
     _httpx_client_cls = httpx2.AsyncClient
 
     def __init__(
@@ -90,14 +88,20 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         elif isinstance(event, RateLimitWait):
             await self._ratelimit_wait(event.duration)
         elif isinstance(event, AcquireLock):
-            if (
-                isinstance(event.lock, AsyncFileLock)
-                and sniffio.current_async_library() != "asyncio"
-            ):
-                raise UnsupportedAsyncLibrary
-            await event.lock.acquire()
+            # Mirror filelock's AsyncFileLock structure with backend-agnostic
+            # primitives: non-blocking acquire attempts in a worker thread,
+            # with a cancellable sleep between attempts.
+            while True:
+                try:
+                    await anyio.to_thread.run_sync(
+                        partial(event.lock.acquire, blocking=False)
+                    )
+                except Timeout:
+                    await anyio.sleep(0.05)
+                else:
+                    break
         elif isinstance(event, ReleaseLock):
-            await event.lock.release()
+            await anyio.to_thread.run_sync(event.lock.release)
         else:
             raise RuntimeError(f"Unknown event type: {type(event)}")
 
