@@ -1,7 +1,7 @@
-import asyncio
 import time
 import weakref
 
+import anyio
 import httpx2
 import outcome
 import sniffio
@@ -62,7 +62,6 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             additional_rate_limit=additional_rate_limit,
             cache_path=cache_path,
         )
-        self._ratelimit_tasks = set()
 
     def _setup_finalizer(self):
         self._finalizer = weakref.finalize(
@@ -243,26 +242,10 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             await self.callback(until)
 
     async def _ratelimit_wait(self, duration):
-        async_library = sniffio.current_async_library()
-        if async_library == "asyncio":
-            await self._ratelimit_wait_asyncio(duration)
-        elif async_library == "trio":
-            await self._ratelimit_wait_trio(duration)
-
-    async def _ratelimit_wait_asyncio(self, duration):
         until = time.monotonic() + duration
-        task = asyncio.create_task(self._ratelimit_callback(until))
-        self._ratelimit_tasks.add(task)
-        task.add_done_callback(self._ratelimit_tasks.discard)
-        await asyncio.sleep(duration)
-
-    async def _ratelimit_wait_trio(self, duration):
-        import trio
-
-        until = time.monotonic() + duration
-        async with trio.open_nursery() as nursery:
-            nursery.start_soon(self._ratelimit_callback, until)
-            nursery.start_soon(trio.sleep, duration)
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(self._ratelimit_callback, until)
+            tg.start_soon(anyio.sleep, duration)
 
     async def get_predicates(self, class_, controller=None):
         """Get full predicate information for given request class, and cache

@@ -1085,6 +1085,7 @@ name = "spacetrack"
 version = "2.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "anyio" },
     { name = "filelock" },
     { name = "httpx2" },
     { name = "logbook" },
@@ -1150,6 +1151,7 @@ towncrier = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anyio", specifier = ">=4.10" },
     { name = "filelock", specifier = ">=3.17.0" },
     { name = "httpx2", specifier = ">=2.9.1" },
     { name = "logbook", specifier = ">=1.10.1" },

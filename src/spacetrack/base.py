@@ -783,6 +783,7 @@ class SpaceTrackClient:
         t.daemon = True
         t.start()
         time.sleep(duration)
+        t.join()
 
     def __getattr__(self, attr):
         if attr in self.request_controllers:

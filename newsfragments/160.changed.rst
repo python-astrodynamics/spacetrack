@@ -1,0 +1,2 @@
+Rate limit waits now guarantee that the ``callback`` has finished before the request is retried, in all clients.
+As a result, an exception raised by an async callback now propagates as an :class:`ExceptionGroup` on asyncio instead of being silently discarded, matching the existing trio behaviour.
