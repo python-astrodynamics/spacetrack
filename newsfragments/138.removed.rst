@@ -1,2 +1,0 @@
-The ``tle``, ``tle_latest``, ``tle_publish``, and ``omm`` request classes have
-been removed because they no longer exist on Space-Track.

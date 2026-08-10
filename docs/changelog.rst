@@ -3,6 +3,31 @@ Change Log
 
 .. towncrier release notes start
 
+`2.0.0 <https://github.com/python-astrodynamics/spacetrack/releases/tag/2.0.0>`_ - 2026-08-10
+---------------------------------------------------------------------------------------------
+
+Added
+~~~~~
+
+- Support for Python 3.14 (`#137 <https://github.com/python-astrodynamics/spacetrack/issues/137>`_)
+- Support for Python 3.15 (`#154 <https://github.com/python-astrodynamics/spacetrack/issues/154>`_)
+
+
+Changed
+~~~~~~~
+
+- Replace `HTTPX <https://www.python-httpx.org/>`__ with the maintained `HTTPX2 <https://httpx2.pydantic.dev/>`__ fork.
+  Users that provide a custom ``httpx_client`` must now pass an ``httpx2.Client`` or ``httpx2.AsyncClient``, and exception handling should catch exceptions from ``httpx2`` instead of ``httpx``. (`#152 <https://github.com/python-astrodynamics/spacetrack/issues/152>`_)
+
+
+Removed
+~~~~~~~
+
+- **Support for Python 3.9** (`#137 <https://github.com/python-astrodynamics/spacetrack/issues/137>`_)
+- The ``tle``, ``tle_latest``, ``tle_publish``, and ``omm`` request classes have
+  been removed because they no longer exist on Space-Track. (`#138 <https://github.com/python-astrodynamics/spacetrack/issues/138>`_)
+
+
 1.4.0_ - 2025-02-21
 -------------------
 
