@@ -780,11 +780,20 @@ class SpaceTrackClient:
 
     def _ratelimit_wait(self, duration):
         until = time.monotonic() + duration
-        t = threading.Thread(target=self._ratelimit_callback, args=(until,))
+        callback_outcome = None
+
+        def run_callback():
+            nonlocal callback_outcome
+            callback_outcome = outcome.capture(self._ratelimit_callback, until)
+
+        t = threading.Thread(target=run_callback)
         t.daemon = True
         t.start()
         time.sleep(duration)
         t.join()
+        # Match the async client, where a callback exception propagates and
+        # aborts the request.
+        callback_outcome.unwrap()
 
     def __getattr__(self, attr):
         if attr in self.request_controllers:

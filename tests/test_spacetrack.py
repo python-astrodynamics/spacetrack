@@ -235,6 +235,23 @@ def test_non_ratelimit_error(client, httpx2_mock, mock_auth, mock_gp_predicates)
     assert not mock_callback.called
 
 
+def test_ratelimit_callback_error(client, httpx2_mock, mock_auth, mock_gp_predicates):
+    # Change ratelimiter period to speed up test
+    client._per_minute_throttle.rate = Quota(
+        period=dt.timedelta(milliseconds=50), count=30
+    )
+
+    url = api_url("basicspacedata/query/class/gp")
+    httpx2_mock.add_response(
+        method="GET", url=url, status_code=500, text="violated your query rate limit"
+    )
+
+    client.callback = Mock(side_effect=ValueError("boom"))
+
+    with pytest.raises(ValueError, match="boom"):
+        client.gp()
+
+
 def test_predicate_parse_modeldef(client):
     predicates_data = [
         {
