@@ -368,6 +368,16 @@ def test_controller_spacetrack_methods(client):
                 assert mock_generic_request.call_args == expected
 
 
+def test_controller_proxy_keeps_client_alive(httpx2_mock):
+    # A _ControllerProxy used to hold only a weak reference, so using a
+    # proxy after the client's last strong reference was dropped raised
+    # ReferenceError.
+    with patch.object(SpaceTrackClient, "generic_request") as mock_generic_request:
+        SpaceTrackClient("identity", "password").basicspacedata.gp()
+
+    mock_generic_request.assert_called_once()
+
+
 def test_authenticate(httpx2_mock):
     def request_callback(request):
         if b"wrongpassword" in request.content:

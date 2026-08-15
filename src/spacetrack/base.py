@@ -1090,9 +1090,7 @@ class _ControllerProxy:
     """Proxies request class methods with a preset request controller."""
 
     def __init__(self, client, controller):
-        # The client will cache _ControllerProxy instances, so only store
-        # a weak reference to it.
-        self.client = weakref.proxy(client)
+        self.client = client
         self.controller = controller
 
     def __getattr__(self, attr):
