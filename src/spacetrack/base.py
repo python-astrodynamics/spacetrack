@@ -1076,8 +1076,10 @@ class SpaceTrackClient:
     def close(self):
         """Log out of Space-Track (if necessary) and close any open connections."""
         self._finalizer.detach()
-        self.logout()
-        self.client.close()
+        try:
+            self.logout()
+        finally:
+            self.client.close()
 
     def __repr__(self):
         r = ReprHelper(self)

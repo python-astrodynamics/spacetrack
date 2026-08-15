@@ -701,6 +701,24 @@ def test_unknown_event(client):
         client._handle_event(object())
 
 
+def test_close_when_logout_fails(httpx2_mock):
+    httpx2_mock.add_response(method="POST", url=api_url("ajaxauth/login"), json="")
+    httpx2_mock.add_response(
+        method="GET",
+        url=api_url("ajaxauth/logout"),
+        status_code=500,
+        json={"error": "oops"},
+    )
+
+    client = SpaceTrackClient("identity", "password")
+    client.authenticate()
+
+    with pytest.raises(httpx2.HTTPStatusError):
+        client.close()
+
+    assert client.client.is_closed
+
+
 def test_implicit_cleanup_warning():
     with pytest.warns(ResourceWarning, match="without being closed explicitly"):
         SpaceTrackClient("identity", "password")

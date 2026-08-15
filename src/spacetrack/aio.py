@@ -302,8 +302,10 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
     async def close(self):
         """Log out of Space-Track (if necessary) and close any open connections."""
         self._finalizer.detach()
-        await self.logout()
-        await self.client.aclose()
+        try:
+            await self.logout()
+        finally:
+            await self.client.aclose()
 
 
 async def _iter_lines_generator(response):
