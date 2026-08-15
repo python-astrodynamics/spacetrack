@@ -1,3 +1,4 @@
+import inspect
 import time
 import weakref
 from functools import partial
@@ -255,7 +256,9 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         logger.info("Rate limit reached. Sleeping for {:d} seconds.", duration)
 
         if self.callback is not None:
-            await self.callback(until)
+            result = self.callback(until)
+            if inspect.isawaitable(result):
+                await result
 
     async def _ratelimit_wait(self, duration):
         until = time.monotonic() + duration

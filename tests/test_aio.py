@@ -209,6 +209,16 @@ async def test_acquire_file_lock_waits_for_release(async_runner, client, tmp_pat
     lock.release()
 
 
+async def test_ratelimit_sync_callback(async_runner, client):
+    # The documentation shows a plain function callback for both clients.
+    calls = []
+    client.callback = calls.append
+
+    await client._ratelimit_wait(0)
+
+    assert len(calls) == 1
+
+
 async def test_modeldef_cache(async_runner, httpx2_mock, mock_auth, cache_file_mangler):
     # This test creates three independently authenticated clients.
     mock_auth()
