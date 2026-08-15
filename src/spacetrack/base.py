@@ -894,7 +894,7 @@ class SpaceTrackClient:
         req = self.client.build_request("GET", url)
         logger.debug(req.url)
 
-        resp = yield NormalRequest(req)
+        resp = yield from self._ratelimited_send_generator(req)
 
         _raise_for_status(resp)
 

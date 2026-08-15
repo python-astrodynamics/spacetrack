@@ -316,6 +316,22 @@ def test_additional_rate_limit(httpx2_mock, mock_auth, mock_gp_predicates):
     assert waits
 
 
+def test_modeldef_ratelimit_error(client, httpx2_mock, mock_auth):
+    # Change ratelimiter period to speed up test
+    client._per_minute_throttle.rate = Quota(
+        period=dt.timedelta(milliseconds=50), count=30
+    )
+
+    url = api_url("basicspacedata/modeldef/class/gp")
+    httpx2_mock.add_response(
+        method="GET", url=url, status_code=500, text="violated your query rate limit"
+    )
+    httpx2_mock.add_response(method="GET", url=url, json={"data": []})
+
+    assert client.get_predicates("gp") == []
+    assert len(httpx2_mock.get_requests(method="GET", url=url)) == 2
+
+
 def test_predicate_parse_modeldef(client):
     predicates_data = [
         {
