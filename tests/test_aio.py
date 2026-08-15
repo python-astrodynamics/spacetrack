@@ -51,9 +51,9 @@ async def test_get_predicates_calls(client):
         await client.get_predicates("gp", "basicspacedata")
 
         expected_calls = [
-            call(class_="gp", controller="basicspacedata"),
-            call(class_="gp", controller="basicspacedata"),
-            call(class_="gp", controller="basicspacedata"),
+            call("gp", controller="basicspacedata"),
+            call("gp", controller="basicspacedata"),
+            call("gp", controller="basicspacedata"),
             call("gp"),
             call("gp", "basicspacedata"),
         ]
