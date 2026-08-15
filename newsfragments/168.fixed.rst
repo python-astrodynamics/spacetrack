@@ -1,0 +1,2 @@
+:meth:`~spacetrack.base.SpaceTrackClient.get_predicates` now returns the known predicates for request classes without a model definition on Space-Track (such as ``fileshare/download`` and ``publicfiles/dirs``) instead of failing.
+The returned :class:`~spacetrack.base.Predicate` objects have a ``type_`` of ``None``, since no model definition exists to provide it.
