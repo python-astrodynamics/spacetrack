@@ -18,6 +18,7 @@ from .base import (
     RateLimitWait,
     ReadResponse,
     ReleaseLock,
+    RunBlocking,
     SpaceTrackClient,
     logger,
 )
@@ -102,6 +103,8 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                     break
         elif isinstance(event, ReleaseLock):
             await anyio.to_thread.run_sync(event.lock.release)
+        elif isinstance(event, RunBlocking):
+            return await anyio.to_thread.run_sync(event.func)
         else:
             raise RuntimeError(f"Unknown event type: {type(event)}")
 

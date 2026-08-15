@@ -117,6 +117,11 @@ class ReleaseLock(Event):
     lock = attr.ib()
 
 
+@attr.s(slots=True)
+class RunBlocking(Event):
+    func = attr.ib()
+
+
 class Predicate(ReprHelperMixin):
     """Hold Space-Track predicate information.
 
@@ -400,6 +405,8 @@ class SpaceTrackClient:
             event.lock.acquire()
         elif isinstance(event, ReleaseLock):
             event.lock.release()
+        elif isinstance(event, RunBlocking):
+            return event.func()
         else:
             raise RuntimeError(f"Unknown event type: {type(event)}")
 
@@ -861,12 +868,15 @@ class SpaceTrackClient:
             hasher.update(key.encode())
             hashkey = hasher.hexdigest()[:16]
             cache_file = self._cache_path / f"predicates-{hashkey}.json"
-            predicates_data = self._read_cache_file(
-                cache_file, PREDICATE_CACHE_EXPIRY_TIME
+            read_cache = partial(
+                self._read_cache_file, cache_file, PREDICATE_CACHE_EXPIRY_TIME
             )
+            predicates_data = yield RunBlocking(read_cache)
 
             if predicates_data is None:
-                self._cache_path.mkdir(parents=True, exist_ok=True)
+                yield RunBlocking(
+                    partial(self._cache_path.mkdir, parents=True, exist_ok=True)
+                )
 
                 lock_file = cache_file.with_name(cache_file.name + ".lock")
                 # thread_local=False because the async client acquires and
@@ -875,14 +885,14 @@ class SpaceTrackClient:
                 yield AcquireLock(lock)
 
                 try:
-                    predicates_data = self._read_cache_file(
-                        cache_file, PREDICATE_CACHE_EXPIRY_TIME
-                    )
+                    predicates_data = yield RunBlocking(read_cache)
                     if predicates_data is None:
                         predicates_data = yield from self._download_predicate_data_generator(
                             class_, controller
                         )
-                        self._write_cache_file(cache_file, predicates_data)
+                        yield RunBlocking(
+                            partial(self._write_cache_file, cache_file, predicates_data)
+                        )
                 finally:
                     yield ReleaseLock(lock)
 
