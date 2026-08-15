@@ -747,7 +747,11 @@ class SpaceTrackClient:
     def _parse_types(data, predicates):
         predicate_map = {p.name: p for p in predicates}
 
-        for obj in data:
+        # With metadata=true, the rows are wrapped in a dict alongside the
+        # request metadata.
+        rows = data.get("data", []) if isinstance(data, Mapping) else data
+
+        for obj in rows:
             for key, value in obj.items():
                 if key.lower() in predicate_map:
                     obj[key] = predicate_map[key.lower()].parse(value)
