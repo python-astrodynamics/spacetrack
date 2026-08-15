@@ -252,6 +252,70 @@ def test_ratelimit_callback_error(client, httpx2_mock, mock_auth, mock_gp_predic
         client.gp()
 
 
+def test_ratelimit_rechecked_after_wait(
+    client, httpx2_mock, mock_auth, mock_gp_predicates
+):
+    # With one request per window, every query after the model definition
+    # request has to wait, which is only the case if requests sent after a
+    # wait are recorded.
+    client._per_minute_throttle.rate = Quota(
+        period=dt.timedelta(milliseconds=50), count=1
+    )
+
+    url = api_url("basicspacedata/query/class/gp")
+    httpx2_mock.add_response(method="GET", url=url, json={"a": 1}, is_reusable=True)
+
+    waits = []
+    client.callback = waits.append
+
+    for _ in range(3):
+        assert client.gp() == {"a": 1}
+
+    assert len(waits) >= 3
+
+    # Waiting on the per-minute quota must not have charged the per-hour one
+    # more than once per request sent (the model definition plus 3 queries).
+    hour_limit = client._per_hour_throttle.peek(client._per_hour_key)
+    assert hour_limit.limit - hour_limit.remaining == 4
+
+
+def test_ratelimit_per_hour(client, httpx2_mock, mock_auth, mock_gp_predicates):
+    # Trip the per-hour throttle instead of the per-minute one, with a short
+    # period so that the real wait is brief.
+    client._per_hour_throttle.rate = Quota(
+        period=dt.timedelta(milliseconds=50), count=2
+    )
+
+    url = api_url("basicspacedata/query/class/gp")
+    httpx2_mock.add_response(method="GET", url=url, json={"a": 1}, is_reusable=True)
+
+    waits = []
+    client.callback = waits.append
+
+    for _ in range(3):
+        assert client.gp() == {"a": 1}
+
+    assert waits
+
+
+def test_additional_rate_limit(httpx2_mock, mock_auth, mock_gp_predicates):
+    url = api_url("basicspacedata/query/class/gp")
+    httpx2_mock.add_response(method="GET", url=url, json={"a": 1}, is_reusable=True)
+
+    with SpaceTrackClient(
+        "identity",
+        "password",
+        additional_rate_limit=Quota(period=dt.timedelta(milliseconds=50), count=1),
+    ) as client:
+        waits = []
+        client.callback = waits.append
+
+        assert client.gp() == {"a": 1}
+        assert client.gp() == {"a": 1}
+
+    assert waits
+
+
 def test_predicate_parse_modeldef(client):
     predicates_data = [
         {
