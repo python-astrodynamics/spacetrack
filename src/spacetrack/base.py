@@ -400,6 +400,9 @@ class SpaceTrackClient:
     @base_url.setter
     def base_url(self, url):
         self.client.base_url = url
+        # The session cookie and predicate metadata are host-specific.
+        self._authenticated = False
+        self._predicates = dict()
 
     def _handle_event(self, event):
         if isinstance(event, NormalRequest):
