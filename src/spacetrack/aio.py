@@ -91,18 +91,27 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         elif isinstance(event, AcquireFileLock):
             # Mirror filelock's AsyncFileLock structure with backend-agnostic
             # primitives: non-blocking acquire attempts in a worker thread,
-            # with a cancellable sleep between attempts.
+            # with a cancellable sleep between attempts. Each attempt is
+            # shielded so that a cancellation cannot discard an acquired
+            # lock; cancellation is delivered at the sleep instead.
             while True:
-                try:
-                    await anyio.to_thread.run_sync(
-                        partial(event.lock.acquire, blocking=False)
-                    )
-                except Timeout:
-                    await anyio.sleep(0.05)
-                else:
+                with anyio.CancelScope(shield=True):
+                    try:
+                        await anyio.to_thread.run_sync(
+                            partial(event.lock.acquire, blocking=False)
+                        )
+                    except Timeout:
+                        acquired = False
+                    else:
+                        acquired = True
+                if acquired:
                     break
+                await anyio.sleep(0.05)
         elif isinstance(event, ReleaseFileLock):
-            await anyio.to_thread.run_sync(event.lock.release)
+            # Shielded so that a cancelled scope cannot skip the release and
+            # leak the lock.
+            with anyio.CancelScope(shield=True):
+                await anyio.to_thread.run_sync(event.lock.release)
         elif isinstance(event, RunBlocking):
             return await anyio.to_thread.run_sync(event.func)
         else:

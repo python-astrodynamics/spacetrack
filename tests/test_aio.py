@@ -1,14 +1,16 @@
 from datetime import timedelta
 from unittest.mock import call, patch
 
+import anyio
 import httpx2
 import pytest
 import pytest_asyncio
+from filelock import FileLock
 from rush.quota import Quota
 
 from spacetrack import AsyncSpaceTrackClient
 from spacetrack.aio import _iter_content_generator
-from spacetrack.base import BASE_URL
+from spacetrack.base import BASE_URL, AcquireFileLock, ReleaseFileLock
 
 
 def api_url(path):
@@ -175,6 +177,36 @@ async def test_ratelimit_error(
     assert mock_callback.call_count == 1
     mock_callback.assert_awaited()
     assert mock_wait.call_args_list == [call(0.05), call(0.05)]
+
+
+async def test_release_lock_when_cancelled(async_runner, client, tmp_path):
+    # A cancelled scope must not skip the lock release, which would leak the
+    # predicate cache lock file.
+    lock = FileLock(tmp_path / "test.lock", thread_local=False)
+    lock.acquire(blocking=False)
+
+    with anyio.move_on_after(0):
+        await client._handle_event(ReleaseFileLock(lock))
+
+    assert not lock.is_locked
+
+
+async def test_acquire_file_lock_waits_for_release(async_runner, client, tmp_path):
+    path = tmp_path / "test.lock"
+    holder = FileLock(path, thread_local=False)
+    holder.acquire(blocking=False)
+    lock = FileLock(path, thread_local=False)
+
+    async def release_holder():
+        await anyio.sleep(0.2)
+        holder.release()
+
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(release_holder)
+        await client._handle_event(AcquireFileLock(lock))
+
+    assert lock.is_locked
+    lock.release()
 
 
 async def test_modeldef_cache(async_runner, httpx2_mock, mock_auth, cache_file_mangler):
