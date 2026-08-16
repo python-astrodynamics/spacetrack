@@ -10,14 +10,14 @@ from httpx2 import USE_CLIENT_DEFAULT
 
 from .base import (
     BASE_URL,
-    AcquireLock,
+    AcquireFileLock,
     Event,
     IterContent,
     IterLines,
     NormalRequest,
     RateLimitWait,
     ReadResponse,
-    ReleaseLock,
+    ReleaseFileLock,
     RunBlocking,
     SpaceTrackClient,
     logger,
@@ -88,7 +88,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             return _iter_content_generator(event.response, event.decode)
         elif isinstance(event, RateLimitWait):
             await self._ratelimit_wait(event.duration)
-        elif isinstance(event, AcquireLock):
+        elif isinstance(event, AcquireFileLock):
             # Mirror filelock's AsyncFileLock structure with backend-agnostic
             # primitives: non-blocking acquire attempts in a worker thread,
             # with a cancellable sleep between attempts.
@@ -101,7 +101,7 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
                     await anyio.sleep(0.05)
                 else:
                     break
-        elif isinstance(event, ReleaseLock):
+        elif isinstance(event, ReleaseFileLock):
             await anyio.to_thread.run_sync(event.lock.release)
         elif isinstance(event, RunBlocking):
             return await anyio.to_thread.run_sync(event.func)

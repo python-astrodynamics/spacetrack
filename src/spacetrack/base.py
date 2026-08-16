@@ -109,12 +109,12 @@ class RateLimitWait(Event):
 
 
 @define
-class AcquireLock(Event):
+class AcquireFileLock(Event):
     lock: FileLock
 
 
 @define
-class ReleaseLock(Event):
+class ReleaseFileLock(Event):
     lock: FileLock
 
 
@@ -402,9 +402,9 @@ class SpaceTrackClient:
             return _iter_content_generator(event.response, event.decode)
         elif isinstance(event, RateLimitWait):
             self._ratelimit_wait(event.duration)
-        elif isinstance(event, AcquireLock):
+        elif isinstance(event, AcquireFileLock):
             event.lock.acquire()
-        elif isinstance(event, ReleaseLock):
+        elif isinstance(event, ReleaseFileLock):
             event.lock.release()
         elif isinstance(event, RunBlocking):
             return event.func()
@@ -883,7 +883,7 @@ class SpaceTrackClient:
                 # thread_local=False because the async client acquires and
                 # releases the lock from different worker threads.
                 lock = FileLock(lock_file, thread_local=False)
-                yield AcquireLock(lock)
+                yield AcquireFileLock(lock)
 
                 try:
                     predicates_data = yield RunBlocking(read_cache)
@@ -895,7 +895,7 @@ class SpaceTrackClient:
                             partial(self._write_cache_file, cache_file, predicates_data)
                         )
                 finally:
-                    yield ReleaseLock(lock)
+                    yield ReleaseFileLock(lock)
 
             predicate_objects = self._parse_predicates_data(predicates_data)
 
