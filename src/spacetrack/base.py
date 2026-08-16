@@ -1157,7 +1157,7 @@ def _raise_for_status(response):
 
         try:
             json = response.json()
-            if isinstance(json, Mapping):
+            if isinstance(json, Mapping) and isinstance(json["error"], str):
                 spacetrack_error_msg = json["error"]
         except (ValueError, KeyError, httpx2.ResponseNotRead):
             pass
