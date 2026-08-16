@@ -614,13 +614,15 @@ class SpaceTrackClient:
                 timeout=timeout,
             )
             logger.debug(request.url)
-            resp = yield from self._ratelimited_send_generator(request)
+            resp = yield from self._authenticated_send_generator(
+                request, retry=_can_resend_file(kwargs["file"])
+            )
         else:
             request = self.client.build_request(
                 "GET", url, params=params, timeout=timeout
             )
             logger.debug(request.url)
-            resp = yield from self._ratelimited_send_generator(
+            resp = yield from self._authenticated_send_generator(
                 request, stream=iter_lines or iter_content
             )
 
@@ -811,6 +813,32 @@ class SpaceTrackClient:
 
         return resp
 
+    def _authenticated_send_generator(self, request, *, stream=False, retry=True):
+        """Send a request, re-authenticating and retrying once if the session
+        has expired.
+
+        Space-Track sessions last two hours and are refreshed by activity, so
+        only a client that has been idle for longer than that gets a 401 here.
+
+        Pass ``retry=False`` if the request body cannot be sent a second time.
+        """
+        resp = yield from self._ratelimited_send_generator(request, stream=stream)
+
+        if resp.status_code == 401 and retry:
+            # Consume a streamed response so its connection is released before
+            # retrying.
+            yield ReadResponse(resp)
+            self._authenticated = False
+            yield from self._auth_generator()
+            # The Cookie header was set when the request was built, so replace
+            # it with the new session cookie. The jar only sets the header if
+            # the request doesn't have one.
+            request.headers.pop("Cookie", None)
+            self.client.cookies.set_cookie_header(request)
+            resp = yield from self._ratelimited_send_generator(request, stream=stream)
+
+        return resp
+
     def _ratelimit_callback(self, until):
         duration = round(until - time.monotonic())
         logger.info("Rate limit reached. Sleeping for {:d} seconds.", duration)
@@ -894,7 +922,7 @@ class SpaceTrackClient:
         req = self.client.build_request("GET", url)
         logger.debug(req.url)
 
-        resp = yield from self._ratelimited_send_generator(req)
+        resp = yield from self._authenticated_send_generator(req)
 
         _raise_for_status(resp)
 
@@ -1132,6 +1160,21 @@ class _ControllerProxy:
         controller.
         """
         return self.client.get_predicates(class_=class_, controller=self.controller)
+
+
+def _can_resend_file(file):
+    """Whether an upload's ``file`` can be sent again after a failed attempt.
+
+    HTTPX rewinds seekable file objects before sending, but a non-seekable
+    stream would be sent empty the second time.
+    """
+    if isinstance(file, (tuple, list)):
+        # (filename, file, ...)
+        file = file[1]
+    if isinstance(file, (bytes, str)):
+        return True
+    seekable = getattr(file, "seekable", None)
+    return callable(seekable) and seekable()
 
 
 def _iter_lines_generator(response):
