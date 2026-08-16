@@ -7,16 +7,17 @@ import time
 import warnings
 import weakref
 from collections import OrderedDict
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from json import JSONDecodeError
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 
-import attr
 import httpx2
 import outcome
+from attrs import define
 from filelock import FileLock
 from httpx2 import USE_CLIENT_DEFAULT
 from logbook import Logger
@@ -79,47 +80,47 @@ class Event:
     pass
 
 
-@attr.s(slots=True)
+@define
 class NormalRequest(Event):
-    request = attr.ib()
-    stream = attr.ib(default=False)
-    follow_redirects = attr.ib(default=False)
+    request: httpx2.Request
+    stream: bool = False
+    follow_redirects: bool = False
 
 
-@attr.s(slots=True)
+@define
 class ReadResponse(Event):
-    response = attr.ib()
+    response: httpx2.Response
 
 
-@attr.s(slots=True)
+@define
 class IterLines(Event):
-    response = attr.ib()
+    response: httpx2.Response
 
 
-@attr.s(slots=True)
+@define
 class IterContent(Event):
-    response = attr.ib()
-    decode = attr.ib()
+    response: httpx2.Response
+    decode: bool
 
 
-@attr.s(slots=True)
+@define
 class RateLimitWait(Event):
-    duration = attr.ib()
+    duration: float
 
 
-@attr.s(slots=True)
+@define
 class AcquireLock(Event):
-    lock = attr.ib()
+    lock: FileLock
 
 
-@attr.s(slots=True)
+@define
 class ReleaseLock(Event):
-    lock = attr.ib()
+    lock: FileLock
 
 
-@attr.s(slots=True)
+@define
 class RunBlocking(Event):
-    func = attr.ib()
+    func: Callable[[], Any]
 
 
 class Predicate(ReprHelperMixin):
