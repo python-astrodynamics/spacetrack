@@ -4,7 +4,6 @@ from unittest.mock import call, patch
 import anyio
 import httpx2
 import pytest
-import pytest_asyncio
 from filelock import FileLock
 from rush.quota import Quota
 
@@ -12,28 +11,20 @@ from spacetrack import AsyncSpaceTrackClient
 from spacetrack.aio import _iter_content_generator
 from spacetrack.base import BASE_URL, AcquireFileLock, ReleaseFileLock
 
+pytestmark = pytest.mark.anyio
+
 
 def api_url(path):
     return f"{BASE_URL}{path}"
 
 
-@pytest.fixture(
-    params=[
-        pytest.param("asyncio", marks=pytest.mark.asyncio),
-        pytest.param("trio", marks=pytest.mark.trio),
-    ]
-)
-def async_runner(request):
-    return request.param
-
-
-@pytest_asyncio.fixture
+@pytest.fixture
 async def client(httpx2_mock):
     async with AsyncSpaceTrackClient("identity", "password") as st:
         yield st
 
 
-async def test_custom_httpx_client(async_runner):
+async def test_custom_httpx_client():
     httpx_client = httpx2.AsyncClient()
 
     async with AsyncSpaceTrackClient(
@@ -45,11 +36,11 @@ async def test_custom_httpx_client(async_runner):
         AsyncSpaceTrackClient("identity", "password", httpx_client=object())
 
 
-async def test_authenticate(client, async_runner, mock_auth):
+async def test_authenticate(client, mock_auth):
     await client.authenticate()
 
 
-async def test_get_predicates_calls(async_runner, client):
+async def test_get_predicates_calls(client):
     patch_get_predicates = patch.object(client, "get_predicates")
 
     with patch_get_predicates as mock_get_predicates:
@@ -70,7 +61,7 @@ async def test_get_predicates_calls(async_runner, client):
         assert mock_get_predicates.await_args_list == expected_calls
 
 
-async def test_get_predicates(async_runner, client, mock_auth, mock_gp_predicates):
+async def test_get_predicates(client, mock_auth, mock_gp_predicates):
     predicates = await client.gp.get_predicates()
 
     assert {predicate.name for predicate in predicates} >= {
@@ -80,9 +71,7 @@ async def test_get_predicates(async_runner, client, mock_auth, mock_gp_predicate
     }
 
 
-async def test_generic_request(
-    client, async_runner, httpx2_mock, mock_auth, mock_gp_predicates
-):
+async def test_generic_request(client, httpx2_mock, mock_auth, mock_gp_predicates):
     tle = (
         "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927\r\n"
         "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537\r\n"
@@ -104,7 +93,7 @@ async def test_generic_request(
     assert result["a"] == 5
 
 
-async def test_iter_content_generator(async_runner):
+async def test_iter_content_generator():
     """Test CRLF -> LF newline conversion."""
 
     async def mock_aiter_bytes():
@@ -135,9 +124,7 @@ async def test_iter_content_generator(async_runner):
         assert result == [b"1\r\n2\r\n", b"3\r", b"\n4", b"\r\n5"]
 
 
-async def test_ratelimit_error(
-    async_runner, client, httpx2_mock, mock_auth, mock_gp_predicates
-):
+async def test_ratelimit_error(client, httpx2_mock, mock_auth, mock_gp_predicates):
     from unittest.mock import AsyncMock
 
     url = api_url("basicspacedata/query/class/gp")
@@ -179,7 +166,7 @@ async def test_ratelimit_error(
     assert mock_wait.call_args_list == [call(0.05), call(0.05)]
 
 
-async def test_release_lock_when_cancelled(async_runner, client, tmp_path):
+async def test_release_lock_when_cancelled(client, tmp_path):
     # A cancelled scope must not skip the lock release, which would leak the
     # predicate cache lock file.
     lock = FileLock(tmp_path / "test.lock", thread_local=False)
@@ -191,7 +178,7 @@ async def test_release_lock_when_cancelled(async_runner, client, tmp_path):
     assert not lock.is_locked
 
 
-async def test_acquire_file_lock_waits_for_release(async_runner, client, tmp_path):
+async def test_acquire_file_lock_waits_for_release(client, tmp_path):
     path = tmp_path / "test.lock"
     holder = FileLock(path, thread_local=False)
     holder.acquire(blocking=False)
@@ -209,7 +196,7 @@ async def test_acquire_file_lock_waits_for_release(async_runner, client, tmp_pat
     lock.release()
 
 
-async def test_ratelimit_sync_callback(async_runner, client):
+async def test_ratelimit_sync_callback(client):
     # The documentation shows a plain function callback for both clients.
     calls = []
     client.callback = calls.append
@@ -219,7 +206,7 @@ async def test_ratelimit_sync_callback(async_runner, client):
     assert len(calls) == 1
 
 
-async def test_modeldef_cache(async_runner, httpx2_mock, mock_auth, cache_file_mangler):
+async def test_modeldef_cache(httpx2_mock, mock_auth, cache_file_mangler):
     # This test creates three independently authenticated clients.
     mock_auth()
     mock_auth()
@@ -279,13 +266,13 @@ async def test_modeldef_cache(async_runner, httpx2_mock, mock_auth, cache_file_m
         assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 2
 
 
-async def test_custom_cache_path(async_runner, httpx2_mock, tmp_path):
+async def test_custom_cache_path(httpx2_mock, tmp_path):
     async with AsyncSpaceTrackClient(
         "identity", "password", cache_path=tmp_path
     ) as client:
         assert client._cache_path == tmp_path
 
 
-async def test_unknown_event(async_runner, client):
+async def test_unknown_event(client):
     with pytest.raises(RuntimeError, match="Unknown event type"):
         await client._handle_event(object())
