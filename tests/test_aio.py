@@ -206,6 +206,15 @@ async def test_ratelimit_sync_callback(client):
     assert len(calls) == 1
 
 
+async def test_concurrent_authenticate(client, httpx2_mock, mock_auth):
+    async with anyio.create_task_group() as tg:
+        for _ in range(5):
+            tg.start_soon(client.authenticate)
+
+    login_url = api_url("ajaxauth/login")
+    assert len(httpx2_mock.get_requests(method="POST", url=login_url)) == 1
+
+
 async def test_modeldef_cache(httpx2_mock, mock_auth, cache_file_mangler):
     # This test creates three independently authenticated clients.
     mock_auth()

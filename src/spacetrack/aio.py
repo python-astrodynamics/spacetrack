@@ -11,6 +11,7 @@ from httpx2 import USE_CLIENT_DEFAULT
 
 from .base import (
     BASE_URL,
+    AcquireAuthLock,
     AcquireFileLock,
     Event,
     IterContent,
@@ -18,6 +19,7 @@ from .base import (
     NormalRequest,
     RateLimitWait,
     ReadResponse,
+    ReleaseAuthLock,
     ReleaseFileLock,
     RunBlocking,
     SpaceTrackClient,
@@ -74,6 +76,11 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             ),
         )
 
+    def _create_auth_lock(self):
+        # When no event loop is running during __init__, the lock binds to
+        # the async backend it is first used under.
+        return anyio.Lock()
+
     async def _handle_event(self, event):
         if isinstance(event, NormalRequest):
             return await self.client.send(
@@ -113,6 +120,12 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             # leak the lock.
             with anyio.CancelScope(shield=True):
                 await anyio.to_thread.run_sync(event.lock.release)
+        elif isinstance(event, AcquireAuthLock):
+            # anyio.Lock acquisition is cancellation-safe, and the release
+            # below is synchronous, so neither needs shielding.
+            await self._auth_lock.acquire()
+        elif isinstance(event, ReleaseAuthLock):
+            self._auth_lock.release()
         elif isinstance(event, RunBlocking):
             return await anyio.to_thread.run_sync(event.func)
         else:
