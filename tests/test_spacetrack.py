@@ -696,6 +696,11 @@ def test_modeldef_cache(httpx2_mock, mock_auth, cache_file_mangler):
         assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 2
 
 
+def test_unknown_event(client):
+    with pytest.raises(RuntimeError, match="Unknown event type"):
+        client._handle_event(object())
+
+
 def test_implicit_cleanup_warning():
     with pytest.warns(ResourceWarning, match="without being closed explicitly"):
         SpaceTrackClient("identity", "password")

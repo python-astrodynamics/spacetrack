@@ -284,3 +284,8 @@ async def test_custom_cache_path(async_runner, httpx2_mock, tmp_path):
         "identity", "password", cache_path=tmp_path
     ) as client:
         assert client._cache_path == tmp_path
+
+
+async def test_unknown_event(async_runner, client):
+    with pytest.raises(RuntimeError, match="Unknown event type"):
+        await client._handle_event(object())
