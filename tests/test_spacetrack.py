@@ -153,6 +153,16 @@ def test_generic_request(httpx2_mock, client, mock_auth, mock_gp_predicates):
     assert "".join(result) == "abcdef"
 
 
+def test_upload(client, httpx2_mock, mock_auth):
+    url = api_url("fileshare/query/class/upload/folder_id/123")
+    httpx2_mock.add_response(method="POST", url=url, json="ok")
+
+    assert client.upload(folder_id=123, file=io.BytesIO(b"file contents")) == "ok"
+
+    request = httpx2_mock.get_request(method="POST", url=url)
+    assert b"file contents" in request.content
+
+
 def test_predicate_error(client, mock_auth, mock_predicates_empty):
     with pytest.raises(TypeError, match=r"unexpected argument 'banana'"):
         client.gp(banana=4)
