@@ -1,4 +1,6 @@
 import datetime as dt
+import io
+import os
 from unittest.mock import Mock, call, patch
 
 import httpx2
@@ -14,6 +16,7 @@ from spacetrack import (
 from spacetrack.base import (
     BASE_URL,
     Predicate,
+    _can_resend_file,
     _iter_content_generator,
     _raise_for_status,
 )
@@ -148,6 +151,16 @@ def test_generic_request(httpx2_mock, client, mock_auth, mock_gp_predicates):
     result = list(client.gp(iter_content=True))
 
     assert "".join(result) == "abcdef"
+
+
+def test_upload(client, httpx2_mock, mock_auth):
+    url = api_url("fileshare/query/class/upload/folder_id/123")
+    httpx2_mock.add_response(method="POST", url=url, json="ok")
+
+    assert client.upload(folder_id=123, file=io.BytesIO(b"file contents")) == "ok"
+
+    request = httpx2_mock.get_request(method="POST", url=url)
+    assert b"file contents" in request.content
 
 
 def test_predicate_error(client, mock_auth, mock_predicates_empty):
@@ -486,6 +499,119 @@ def test_authenticate(httpx2_mock):
 
     with SpaceTrackClient("identity", "unknownresponse") as client:
         client.authenticate()
+
+
+def test_expired_session_reauthenticates(client, httpx2_mock, mock_gp_predicates):
+    url = api_url("basicspacedata/query/class/gp")
+    login_url = api_url("ajaxauth/login")
+
+    # Record the session cookie as each query arrives, since the same request
+    # object is sent again after re-authentication.
+    cookies = []
+    responses = iter(
+        [
+            httpx2.Response(200, json={"a": 1}),
+            # Space-Track sessions expire after two hours of inactivity; the
+            # next query gets a 401 and the client must re-authenticate and
+            # retry transparently, with the new session cookie.
+            httpx2.Response(
+                401, json={"error": "You must be logged in to complete this action"}
+            ),
+            httpx2.Response(200, json={"a": 2}),
+        ]
+    )
+
+    def query(request):
+        cookies.append(request.headers["cookie"])
+        return next(responses)
+
+    httpx2_mock.add_callback(query, method="GET", url=url, is_reusable=True)
+    httpx2_mock.add_response(
+        method="POST",
+        url=login_url,
+        json="",
+        headers={"set-cookie": "chocolatechip=old; Path=/"},
+    )
+    httpx2_mock.add_response(
+        method="POST",
+        url=login_url,
+        json="",
+        headers={"set-cookie": "chocolatechip=new; Path=/"},
+    )
+    httpx2_mock.add_response(method="GET", url=api_url("ajaxauth/logout"), json="")
+
+    assert client.gp() == {"a": 1}
+    assert client.gp() == {"a": 2}
+
+    assert cookies == ["chocolatechip=old", "chocolatechip=old", "chocolatechip=new"]
+
+
+@pytest.mark.parametrize(
+    "file, expected",
+    [
+        (b"contents", True),
+        ("contents", True),
+        (io.BytesIO(b"contents"), True),
+        (("name.txt", io.BytesIO(b"contents")), True),
+        (("name.txt", b"contents", "text/plain"), True),
+        (object(), False),
+    ],
+)
+def test_can_resend_file(file, expected):
+    assert _can_resend_file(file) is expected
+
+
+def test_expired_session_upload_retried(client, httpx2_mock, mock_auth):
+    url = api_url("fileshare/query/class/upload/folder_id/123")
+    httpx2_mock.add_response(method="POST", url=url, status_code=401)
+    httpx2_mock.add_response(method="POST", url=api_url("ajaxauth/login"), json="")
+    httpx2_mock.add_response(method="POST", url=url, json="ok")
+
+    assert client.upload(folder_id=123, file=io.BytesIO(b"file contents")) == "ok"
+
+    # A seekable file is rewound, so both attempts carry the full body.
+    bodies = [r.content for r in httpx2_mock.get_requests(method="POST", url=url)]
+    assert len(bodies) == 2
+    assert all(b"file contents" in body for body in bodies)
+
+
+def test_expired_session_upload_not_retried(client, httpx2_mock, mock_auth):
+    url = api_url("fileshare/query/class/upload/folder_id/123")
+    httpx2_mock.add_response(method="POST", url=url, status_code=401)
+
+    read_fd, write_fd = os.pipe()
+    os.write(write_fd, b"file contents")
+    os.close(write_fd)
+
+    # A non-seekable stream cannot be sent again, so there is no transparent
+    # retry and the error propagates.
+    with os.fdopen(read_fd, "rb") as stream:
+        with pytest.raises(httpx2.HTTPStatusError):
+            client.upload(folder_id=123, file=stream)
+
+    assert len(httpx2_mock.get_requests(method="POST", url=url)) == 1
+
+
+def test_expired_session_retries_once(
+    client, httpx2_mock, mock_auth, mock_gp_predicates
+):
+    url = api_url("basicspacedata/query/class/gp")
+    login_url = api_url("ajaxauth/login")
+
+    httpx2_mock.add_response(
+        method="GET",
+        url=url,
+        status_code=401,
+        json={"error": "You must be logged in to complete this action"},
+        is_reusable=True,
+    )
+    httpx2_mock.add_response(method="POST", url=login_url, json="")
+
+    with pytest.raises(httpx2.HTTPStatusError):
+        client.gp()
+
+    # One transparent retry only; a second 401 raises.
+    assert len(httpx2_mock.get_requests(method="GET", url=url)) == 2
 
 
 def test_base_url(httpx2_mock):
