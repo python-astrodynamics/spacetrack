@@ -754,25 +754,37 @@ class SpaceTrackClient:
 
         return data
 
+    def _ratelimit_check_generator(self):
+        """Wait until no throttle is limited, then charge all of them.
+
+        Peeking first means that waiting on one quota does not consume the
+        others.
+        """
+        throttles = [
+            (self._per_minute_throttle, self._per_minute_key),
+            (self._per_hour_throttle, self._per_hour_key),
+        ]
+        if self._additional_throttle is not None:
+            throttles.append((self._additional_throttle, self._additional_key))
+
+        while True:
+            limits = [throttle.peek(key) for throttle, key in throttles]
+            if not any(limit.limited for limit in limits):
+                # Another process sharing the store may have used the quota
+                # since the peek, in which case wait and try again.
+                limits = [throttle.check(key, 1) for throttle, key in throttles]
+
+            limited = [limit for limit in limits if limit.limited]
+            if not limited:
+                return
+
+            yield RateLimitWait(
+                max(limit.retry_after.total_seconds() for limit in limited)
+            )
+
     def _ratelimited_send_generator(self, request, *, stream=False):
         """Send a request, handling rate limiting."""
-        minute_limit = self._per_minute_throttle.check(self._per_minute_key, 1)
-        hour_limit = self._per_hour_throttle.check(self._per_hour_key, 1)
-
-        sleep_time = 0
-
-        if minute_limit.limited:
-            sleep_time = minute_limit.retry_after.total_seconds()
-
-        if hour_limit.limited:
-            sleep_time = max(sleep_time, hour_limit.retry_after.total_seconds())
-
-        if self._additional_throttle is not None:
-            additional_limit = self._additional_throttle.check(self._additional_key, 1)
-            sleep_time = max(sleep_time, additional_limit.retry_after.total_seconds())
-
-        if sleep_time > 0:
-            yield RateLimitWait(sleep_time)
+        yield from self._ratelimit_check_generator()
 
         req_event = NormalRequest(request, stream=stream, follow_redirects=True)
         resp = yield req_event
@@ -794,6 +806,7 @@ class SpaceTrackClient:
                 yield RateLimitWait(
                     self._per_minute_throttle.rate.period.total_seconds()
                 )
+                yield from self._ratelimit_check_generator()
                 resp = yield req_event
 
         return resp
@@ -881,7 +894,7 @@ class SpaceTrackClient:
         req = self.client.build_request("GET", url)
         logger.debug(req.url)
 
-        resp = yield NormalRequest(req)
+        resp = yield from self._ratelimited_send_generator(req)
 
         _raise_for_status(resp)
 
