@@ -504,6 +504,22 @@ def test_base_url(httpx2_mock):
     assert len(httpx2_mock.get_requests(method="POST", url=login_url)) == 1
 
 
+def test_base_url_change_resets_session_state(client, httpx2_mock, mock_gp_predicates):
+    httpx2_mock.add_response(method="POST", url=api_url("ajaxauth/login"), json="")
+    httpx2_mock.add_response(
+        method="GET", url=api_url("basicspacedata/query/class/gp"), json={"a": 1}
+    )
+
+    assert client.gp() == {"a": 1}
+    assert client._authenticated
+    assert client._predicates
+
+    client.base_url = "https://testing.space-track.org"
+
+    assert not client._authenticated
+    assert not client._predicates
+
+
 def test_raise_for_status(httpx2_mock):
     httpx2_mock.add_response(
         method="GET",
@@ -779,6 +795,24 @@ def test_modeldef_cache(httpx2_mock, mock_auth, cache_file_mangler):
 def test_unknown_event(client):
     with pytest.raises(RuntimeError, match="Unknown event type"):
         client._handle_event(object())
+
+
+def test_close_when_logout_fails(httpx2_mock):
+    httpx2_mock.add_response(method="POST", url=api_url("ajaxauth/login"), json="")
+    httpx2_mock.add_response(
+        method="GET",
+        url=api_url("ajaxauth/logout"),
+        status_code=500,
+        json={"error": "oops"},
+    )
+
+    client = SpaceTrackClient("identity", "password")
+    client.authenticate()
+
+    with pytest.raises(httpx2.HTTPStatusError):
+        client.close()
+
+    assert client.client.is_closed
 
 
 def test_implicit_cleanup_warning():

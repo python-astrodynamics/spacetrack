@@ -1,0 +1,1 @@
+Setting ``base_url`` now resets the authentication state and the cached predicates, which are specific to the previous host.
