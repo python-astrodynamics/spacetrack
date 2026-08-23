@@ -111,6 +111,20 @@ def test_get_predicates(client):
         assert mock_get_predicates.call_args_list == expected_calls
 
 
+def test_get_predicates_offline_class(client, httpx2_mock):
+    predicates = client.get_predicates("download", "fileshare")
+
+    assert {predicate.name for predicate in predicates} == {
+        "file_id",
+        "folder_id",
+        "recursive",
+    }
+    # No model definition exists for these classes, so the types are unknown.
+    assert all(predicate.type_ is None for predicate in predicates)
+
+    assert client.spephemeris.download.get_predicates() == []
+
+
 def test_generic_request(httpx2_mock, client, mock_auth, mock_gp_predicates):
     tle = (
         "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927\r\n"

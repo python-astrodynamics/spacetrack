@@ -941,6 +941,12 @@ class SpaceTrackClient:
             if class_ not in classes:
                 raise ValueError(f"Unknown request class {class_!r}")
 
+        if (class_, controller) in self.offline_predicates:
+            return [
+                Predicate(name, None)
+                for name in sorted(self.offline_predicates[(class_, controller)])
+            ]
+
         key = f"{controller}.{class_}"
 
         if key not in self._predicates or (force and self._predicates[key] is None):
