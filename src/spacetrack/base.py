@@ -888,9 +888,9 @@ class SpaceTrackClient:
         # generic_request can resolve the controller itself, but we
         # pass it because we have to check if the class_ is owned
         # by a controller here anyway.
-        function = partial(self.generic_request, class_=attr, controller=controller)
+        function = partial(self.generic_request, attr, controller=controller)
         function.get_predicates = partial(
-            self.get_predicates, class_=attr, controller=controller
+            self.get_predicates, attr, controller=controller
         )
         return function
 
@@ -1154,10 +1154,10 @@ class _ControllerProxy:
             raise AttributeError(f"'{self!r}' object has no attribute '{attr}'")
 
         function = partial(
-            self.client.generic_request, class_=attr, controller=self.controller
+            self.client.generic_request, attr, controller=self.controller
         )
         function.get_predicates = partial(
-            self.client.get_predicates, class_=attr, controller=self.controller
+            self.client.get_predicates, attr, controller=self.controller
         )
 
         return function
@@ -1172,7 +1172,7 @@ class _ControllerProxy:
         """Proxy ``get_predicates`` to client with stored request
         controller.
         """
-        return self.client.get_predicates(class_=class_, controller=self.controller)
+        return self.client.get_predicates(class_, controller=self.controller)
 
 
 def _can_resend_file(file):

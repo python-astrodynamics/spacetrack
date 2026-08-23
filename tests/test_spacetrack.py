@@ -101,9 +101,9 @@ def test_get_predicates(client):
         client.get_predicates("gp", "basicspacedata")
 
         expected_calls = [
-            call(class_="gp", controller="basicspacedata"),
-            call(class_="gp", controller="basicspacedata"),
-            call(class_="gp", controller="basicspacedata"),
+            call("gp", controller="basicspacedata"),
+            call("gp", controller="basicspacedata"),
+            call("gp", controller="basicspacedata"),
             call("gp"),
             call("gp", "basicspacedata"),
         ]
@@ -457,11 +457,22 @@ def test_bare_spacetrack_methods(client):
                 seen.add(class_)
                 method = getattr(client, class_)
                 method()
-                expected = call(class_=class_, controller=controller)
+                expected = call(class_, controller=controller)
                 assert mock_generic_request.call_args == expected
 
     with pytest.raises(AttributeError):
         client.madeupmethod()
+
+
+def test_positional_arguments(client):
+    # The generic_request docstring documents st.gp_history(*args, **kw) as
+    # equivalent to st.generic_request('gp_history', *args, **kw).
+    with patch.object(SpaceTrackClient, "generic_request") as mock_generic_request:
+        client.gp_history(True)
+
+    assert mock_generic_request.call_args == call(
+        "gp_history", True, controller="basicspacedata"
+    )
 
 
 def test_controller_spacetrack_methods(client):
@@ -471,7 +482,7 @@ def test_controller_spacetrack_methods(client):
                 controller_proxy = getattr(client, controller)
                 method = getattr(controller_proxy, class_)
                 method()
-                expected = call(class_=class_, controller=controller)
+                expected = call(class_, controller=controller)
                 assert mock_generic_request.call_args == expected
 
 
