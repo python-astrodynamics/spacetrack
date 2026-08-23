@@ -1,0 +1,2 @@
+Sets and frozensets are now accepted as predicate values and joined with commas like sequences.
+Bytes-like values now raise :class:`TypeError` instead of being sent as comma-separated integers.

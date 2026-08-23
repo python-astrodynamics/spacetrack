@@ -1,5 +1,5 @@
 import datetime
-from collections.abc import Sequence
+from collections.abc import Sequence, Set
 
 
 def greater_than(value):
@@ -36,13 +36,17 @@ def _stringify_predicate_value(value):
     """Convert Python objects to Space-Track compatible strings
 
     - Booleans (``True`` -> ``'true'``)
-    - Sequences (``[25544, 34602]`` -> ``'25544,34602'``)
+    - Sequences and sets (``[25544, 34602]`` -> ``'25544,34602'``)
     - dates/datetimes (``date(2015, 12, 23)`` -> ``'2015-12-23'``)
     - ``None`` -> ``'null-val'``
     """
     if isinstance(value, bool):
         return str(value).lower()
-    elif isinstance(value, Sequence) and not isinstance(value, str):
+    elif isinstance(value, (bytes, bytearray, memoryview)):
+        raise TypeError(
+            f"predicate values of type {type(value).__name__!r} are not supported"
+        )
+    elif isinstance(value, (Sequence, Set)) and not isinstance(value, str):
         return ",".join(_stringify_predicate_value(x) for x in value)
     elif isinstance(value, datetime.datetime):
         if value.tzinfo is not None:
