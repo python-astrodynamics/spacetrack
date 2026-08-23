@@ -1,13 +1,16 @@
+from datetime import timedelta
 from unittest.mock import call, patch
 
+import anyio
 import httpx2
 import pytest
 import pytest_asyncio
+from filelock import FileLock
 from rush.quota import Quota
 
 from spacetrack import AsyncSpaceTrackClient
 from spacetrack.aio import _iter_content_generator
-from spacetrack.base import BASE_URL
+from spacetrack.base import BASE_URL, AcquireFileLock, ReleaseFileLock
 
 
 def api_url(path):
@@ -143,31 +146,80 @@ async def test_ratelimit_error(
     )
     httpx2_mock.add_response(method="GET", url=url, json={"a": 1})
 
-    # Change ratelimiter period to speed up test
-    client._per_minute_throttle.rate = Quota.per_second(30)
-
-    # Do it first without our own callback, then with.
-
-    assert await client.gp() == {"a": 1}
-    assert len(httpx2_mock.get_requests(method="GET", url=url)) == 2
-
-    mock_callback = AsyncMock()
-    client.callback = mock_callback
-
-    httpx2_mock.add_response(
-        method="GET", url=url, status_code=500, text="violated your query rate limit"
+    # Shrink the rate limit period so that the real _ratelimit_wait
+    # implementation only sleeps briefly.
+    client._per_minute_throttle.rate = Quota(
+        period=timedelta(milliseconds=50), count=30
     )
-    httpx2_mock.add_response(method="GET", url=url, json={"a": 1})
 
-    assert await client.gp() == {"a": 1}
-    assert len(httpx2_mock.get_requests(method="GET", url=url)) == 4
+    with patch.object(
+        client, "_ratelimit_wait", wraps=client._ratelimit_wait
+    ) as mock_wait:
+        # Do it first without our own callback, then with.
+
+        assert await client.gp() == {"a": 1}
+        assert len(httpx2_mock.get_requests(method="GET", url=url)) == 2
+
+        mock_callback = AsyncMock()
+        client.callback = mock_callback
+
+        httpx2_mock.add_response(
+            method="GET",
+            url=url,
+            status_code=500,
+            text="violated your query rate limit",
+        )
+        httpx2_mock.add_response(method="GET", url=url, json={"a": 1})
+
+        assert await client.gp() == {"a": 1}
+        assert len(httpx2_mock.get_requests(method="GET", url=url)) == 4
 
     assert mock_callback.call_count == 1
     mock_callback.assert_awaited()
+    assert mock_wait.call_args_list == [call(0.05), call(0.05)]
 
 
-@pytest.mark.asyncio
-async def test_modeldef_cache(httpx2_mock, mock_auth, cache_file_mangler):
+async def test_release_lock_when_cancelled(async_runner, client, tmp_path):
+    # A cancelled scope must not skip the lock release, which would leak the
+    # predicate cache lock file.
+    lock = FileLock(tmp_path / "test.lock", thread_local=False)
+    lock.acquire(blocking=False)
+
+    with anyio.move_on_after(0):
+        await client._handle_event(ReleaseFileLock(lock))
+
+    assert not lock.is_locked
+
+
+async def test_acquire_file_lock_waits_for_release(async_runner, client, tmp_path):
+    path = tmp_path / "test.lock"
+    holder = FileLock(path, thread_local=False)
+    holder.acquire(blocking=False)
+    lock = FileLock(path, thread_local=False)
+
+    async def release_holder():
+        await anyio.sleep(0.2)
+        holder.release()
+
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(release_holder)
+        await client._handle_event(AcquireFileLock(lock))
+
+    assert lock.is_locked
+    lock.release()
+
+
+async def test_ratelimit_sync_callback(async_runner, client):
+    # The documentation shows a plain function callback for both clients.
+    calls = []
+    client.callback = calls.append
+
+    await client._ratelimit_wait(0)
+
+    assert len(calls) == 1
+
+
+async def test_modeldef_cache(async_runner, httpx2_mock, mock_auth, cache_file_mangler):
     # This test creates three independently authenticated clients.
     mock_auth()
     mock_auth()
@@ -227,51 +279,13 @@ async def test_modeldef_cache(httpx2_mock, mock_auth, cache_file_mangler):
         assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 2
 
 
-@pytest.mark.trio
-async def test_modeldef_not_used_trio(httpx2_mock, mock_auth):
-    query_url = api_url("basicspacedata/query/class/gp/norad_cat_id/25541")
-    httpx2_mock.add_response(
-        method="GET", url=query_url, json="dummy", is_reusable=True
-    )
-
-    modeldef_url = api_url("basicspacedata/modeldef/class/gp")
-    httpx2_mock.add_response(
-        method="GET",
-        url=modeldef_url,
-        json={
-            "controller": "fileshare",
-            "data": [
-                {
-                    "Field": "NORAD_CAT_ID",
-                    "Type": "int(10) unsigned",
-                    "Null": "NO",
-                    "Key": "",
-                    "Default": None,
-                    "Extra": "",
-                },
-            ],
-        },
-    )
-
-    async with AsyncSpaceTrackClient("identity", "password") as client:
-        assert await client.gp(norad_cat_id=25541) == "dummy"
-        assert httpx2_mock.get_requests(method="GET", url=modeldef_url) == []
-
-        # If predicates are requested explicitly, they should be cached (in
-        # client only) and used
-        await client.gp.get_predicates()
-        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
-
-        assert await client.gp(norad_cat_id=25541) == "dummy"
-        assert len(httpx2_mock.get_requests(method="GET", url=modeldef_url)) == 1
-
-        cache_path = client._cache_path
-        cache_files = list(cache_path.glob("*.json"))
-        assert cache_files == []
-
-
 async def test_custom_cache_path(async_runner, httpx2_mock, tmp_path):
     async with AsyncSpaceTrackClient(
         "identity", "password", cache_path=tmp_path
     ) as client:
         assert client._cache_path == tmp_path
+
+
+async def test_unknown_event(async_runner, client):
+    with pytest.raises(RuntimeError, match="Unknown event type"):
+        await client._handle_event(object())

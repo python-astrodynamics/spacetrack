@@ -7,16 +7,17 @@ import time
 import warnings
 import weakref
 from collections import OrderedDict
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from json import JSONDecodeError
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 
-import attr
 import httpx2
 import outcome
+from attrs import define
 from filelock import FileLock
 from httpx2 import USE_CLIENT_DEFAULT
 from logbook import Logger
@@ -79,48 +80,47 @@ class Event:
     pass
 
 
-@attr.s(slots=True)
+@define
 class NormalRequest(Event):
-    request = attr.ib()
-    stream = attr.ib(default=False)
-    follow_redirects = attr.ib(default=False)
+    request: httpx2.Request
+    stream: bool = False
+    follow_redirects: bool = False
 
 
-@attr.s(slots=True)
+@define
 class ReadResponse(Event):
-    response = attr.ib()
+    response: httpx2.Response
 
 
-@attr.s(slots=True)
+@define
 class IterLines(Event):
-    response = attr.ib()
+    response: httpx2.Response
 
 
-@attr.s(slots=True)
+@define
 class IterContent(Event):
-    response = attr.ib()
-    decode = attr.ib()
+    response: httpx2.Response
+    decode: bool
 
 
-@attr.s(slots=True)
+@define
 class RateLimitWait(Event):
-    duration = attr.ib()
+    duration: float
 
 
-@attr.s(slots=True)
-class AcquireLock(Event):
-    lock = attr.ib()
+@define
+class AcquireFileLock(Event):
+    lock: FileLock
 
 
-@attr.s(slots=True)
-class ReleaseLock(Event):
-    lock = attr.ib()
+@define
+class ReleaseFileLock(Event):
+    lock: FileLock
 
 
-class UnsupportedAsyncLibrary(Exception):
-    """Raised internally when an event cannot be handled with the active async
-    library.
-    """
+@define
+class RunBlocking(Event):
+    func: Callable[[], Any]
 
 
 class Predicate(ReprHelperMixin):
@@ -299,7 +299,6 @@ class SpaceTrackClient:
         Predicate("favorites", "str"),
     }
 
-    _file_lock_cls = FileLock
     _httpx_client_cls = httpx2.Client
 
     def __init__(
@@ -403,10 +402,12 @@ class SpaceTrackClient:
             return _iter_content_generator(event.response, event.decode)
         elif isinstance(event, RateLimitWait):
             self._ratelimit_wait(event.duration)
-        elif isinstance(event, AcquireLock):
+        elif isinstance(event, AcquireFileLock):
             event.lock.acquire()
-        elif isinstance(event, ReleaseLock):
+        elif isinstance(event, ReleaseFileLock):
             event.lock.release()
+        elif isinstance(event, RunBlocking):
+            return event.func()
         else:
             raise RuntimeError(f"Unknown event type: {type(event)}")
 
@@ -779,10 +780,20 @@ class SpaceTrackClient:
 
     def _ratelimit_wait(self, duration):
         until = time.monotonic() + duration
-        t = threading.Thread(target=self._ratelimit_callback, args=(until,))
+        callback_outcome = None
+
+        def run_callback():
+            nonlocal callback_outcome
+            callback_outcome = outcome.capture(self._ratelimit_callback, until)
+
+        t = threading.Thread(target=run_callback)
         t.daemon = True
         t.start()
         time.sleep(duration)
+        t.join()
+        # Match the async client, where a callback exception propagates and
+        # aborts the request.
+        callback_outcome.unwrap()
 
     def __getattr__(self, attr):
         if attr in self.request_controllers:
@@ -867,41 +878,33 @@ class SpaceTrackClient:
             hasher.update(key.encode())
             hashkey = hasher.hexdigest()[:16]
             cache_file = self._cache_path / f"predicates-{hashkey}.json"
-            predicates_data = self._read_cache_file(
-                cache_file, PREDICATE_CACHE_EXPIRY_TIME
+            read_cache = partial(
+                self._read_cache_file, cache_file, PREDICATE_CACHE_EXPIRY_TIME
             )
+            predicates_data = yield RunBlocking(read_cache)
 
             if predicates_data is None:
-                self._cache_path.mkdir(parents=True, exist_ok=True)
+                yield RunBlocking(
+                    partial(self._cache_path.mkdir, parents=True, exist_ok=True)
+                )
 
                 lock_file = cache_file.with_name(cache_file.name + ".lock")
-                lock = self._file_lock_cls(lock_file)
-                try:
-                    yield AcquireLock(lock)
-                except UnsupportedAsyncLibrary:
-                    if not force:
-                        # The file lock doesn't support Trio, skip predicate
-                        # checking by setting None
-                        self._predicates[key] = None
-                        return self._predicates[key]
-                    lock_acquired = False
-                else:
-                    lock_acquired = True
+                # thread_local=False because the async client acquires and
+                # releases the lock from different worker threads.
+                lock = FileLock(lock_file, thread_local=False)
+                yield AcquireFileLock(lock)
 
                 try:
-                    if lock_acquired:
-                        predicates_data = self._read_cache_file(
-                            cache_file, PREDICATE_CACHE_EXPIRY_TIME
-                        )
+                    predicates_data = yield RunBlocking(read_cache)
                     if predicates_data is None:
                         predicates_data = yield from self._download_predicate_data_generator(
                             class_, controller
                         )
-                        if lock_acquired:
-                            self._write_cache_file(cache_file, predicates_data)
+                        yield RunBlocking(
+                            partial(self._write_cache_file, cache_file, predicates_data)
+                        )
                 finally:
-                    if lock_acquired:
-                        yield ReleaseLock(lock)
+                    yield ReleaseFileLock(lock)
 
             predicate_objects = self._parse_predicates_data(predicates_data)
 

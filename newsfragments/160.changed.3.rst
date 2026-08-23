@@ -1,0 +1,1 @@
+:class:`~spacetrack.aio.AsyncSpaceTrackClient` no longer performs blocking cache file reads and writes on the event loop; they now run in a worker thread.

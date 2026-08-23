@@ -1,25 +1,26 @@
-import asyncio
+import inspect
 import time
 import weakref
+from functools import partial
 
+import anyio
 import httpx2
 import outcome
-import sniffio
-from filelock import AsyncFileLock
+from filelock import Timeout
 from httpx2 import USE_CLIENT_DEFAULT
 
 from .base import (
     BASE_URL,
-    AcquireLock,
+    AcquireFileLock,
     Event,
     IterContent,
     IterLines,
     NormalRequest,
     RateLimitWait,
     ReadResponse,
-    ReleaseLock,
+    ReleaseFileLock,
+    RunBlocking,
     SpaceTrackClient,
-    UnsupportedAsyncLibrary,
     logger,
 )
 
@@ -38,7 +39,6 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
     be an ``httpx2.AsyncClient``.
     """
 
-    _file_lock_cls = AsyncFileLock
     _httpx_client_cls = httpx2.AsyncClient
 
     def __init__(
@@ -62,7 +62,6 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             additional_rate_limit=additional_rate_limit,
             cache_path=cache_path,
         )
-        self._ratelimit_tasks = set()
 
     def _setup_finalizer(self):
         self._finalizer = weakref.finalize(
@@ -90,15 +89,32 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
             return _iter_content_generator(event.response, event.decode)
         elif isinstance(event, RateLimitWait):
             await self._ratelimit_wait(event.duration)
-        elif isinstance(event, AcquireLock):
-            if (
-                isinstance(event.lock, AsyncFileLock)
-                and sniffio.current_async_library() != "asyncio"
-            ):
-                raise UnsupportedAsyncLibrary
-            await event.lock.acquire()
-        elif isinstance(event, ReleaseLock):
-            await event.lock.release()
+        elif isinstance(event, AcquireFileLock):
+            # Mirror filelock's AsyncFileLock structure with backend-agnostic
+            # primitives: non-blocking acquire attempts in a worker thread,
+            # with a cancellable sleep between attempts. Each attempt is
+            # shielded so that a cancellation cannot discard an acquired
+            # lock; cancellation is delivered at the sleep instead.
+            while True:
+                with anyio.CancelScope(shield=True):
+                    try:
+                        await anyio.to_thread.run_sync(
+                            partial(event.lock.acquire, blocking=False)
+                        )
+                    except Timeout:
+                        acquired = False
+                    else:
+                        acquired = True
+                if acquired:
+                    break
+                await anyio.sleep(0.05)
+        elif isinstance(event, ReleaseFileLock):
+            # Shielded so that a cancelled scope cannot skip the release and
+            # leak the lock.
+            with anyio.CancelScope(shield=True):
+                await anyio.to_thread.run_sync(event.lock.release)
+        elif isinstance(event, RunBlocking):
+            return await anyio.to_thread.run_sync(event.func)
         else:
             raise RuntimeError(f"Unknown event type: {type(event)}")
 
@@ -240,29 +256,15 @@ class AsyncSpaceTrackClient(SpaceTrackClient):
         logger.info("Rate limit reached. Sleeping for {:d} seconds.", duration)
 
         if self.callback is not None:
-            await self.callback(until)
+            result = self.callback(until)
+            if inspect.isawaitable(result):
+                await result
 
     async def _ratelimit_wait(self, duration):
-        async_library = sniffio.current_async_library()
-        if async_library == "asyncio":
-            await self._ratelimit_wait_asyncio(duration)
-        elif async_library == "trio":
-            await self._ratelimit_wait_trio(duration)
-
-    async def _ratelimit_wait_asyncio(self, duration):
         until = time.monotonic() + duration
-        task = asyncio.create_task(self._ratelimit_callback(until))
-        self._ratelimit_tasks.add(task)
-        task.add_done_callback(self._ratelimit_tasks.discard)
-        await asyncio.sleep(duration)
-
-    async def _ratelimit_wait_trio(self, duration):
-        import trio
-
-        until = time.monotonic() + duration
-        async with trio.open_nursery() as nursery:
-            nursery.start_soon(self._ratelimit_callback, until)
-            nursery.start_soon(trio.sleep, duration)
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(self._ratelimit_callback, until)
+            tg.start_soon(anyio.sleep, duration)
 
     async def get_predicates(self, class_, controller=None):
         """Get full predicate information for given request class, and cache
