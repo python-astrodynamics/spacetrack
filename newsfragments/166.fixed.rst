@@ -1,1 +1,0 @@
-:meth:`SpaceTrackClient.close() <spacetrack.base.SpaceTrackClient.close>` and :meth:`AsyncSpaceTrackClient.close() <spacetrack.aio.AsyncSpaceTrackClient.close>` now close the underlying HTTPX client even if logging out fails.

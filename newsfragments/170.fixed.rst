@@ -1,1 +1,0 @@
-``parse_types=True`` now works together with ``metadata=True`` in :meth:`~spacetrack.base.SpaceTrackClient.generic_request` and the request class methods; previously the metadata-wrapped response made it fail after the request had succeeded.

@@ -1,2 +1,0 @@
-Requests sent after a rate limit wait are now counted against the rate limit.
-Previously they were not, so sustained use could exceed Space-Track's limits and trigger server-side rate limit errors.

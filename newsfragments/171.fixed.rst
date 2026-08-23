@@ -1,2 +1,0 @@
-Fixed a :class:`TypeError` when passing positional arguments to request class methods such as ``client.gp_history(...)``.
-The request class was bound as a keyword argument internally, so any positional argument clashed with it.
