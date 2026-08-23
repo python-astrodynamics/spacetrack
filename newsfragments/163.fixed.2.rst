@@ -1,1 +1,0 @@
-Model definition requests are now rate limited like all other requests.

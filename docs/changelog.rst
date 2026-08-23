@@ -7,6 +7,41 @@ Change Log
 
 .. towncrier release notes start
 
+`2.1.0 <https://github.com/python-astrodynamics/spacetrack/releases/tag/2.1.0>`_ - 2026-08-23
+---------------------------------------------------------------------------------------------
+
+Changed
+~~~~~~~
+
+- Predicate caching for keyword validation now works when using :class:`~spacetrack.aio.AsyncSpaceTrackClient` with trio.
+  Previously, the on-disk cache was skipped because the file locking implementation only supported asyncio. (`#160 <https://github.com/python-astrodynamics/spacetrack/issues/160>`_)
+- :class:`~spacetrack.aio.AsyncSpaceTrackClient` no longer performs blocking cache file reads and writes on the event loop; they now run in a worker thread. (`#160 <https://github.com/python-astrodynamics/spacetrack/issues/160>`_)
+- Rate limit waits now guarantee that the ``callback`` has finished before the request is retried, in all clients.
+  As a result, an exception raised by the callback now propagates instead of being silently discarded: directly in :class:`~spacetrack.base.SpaceTrackClient`, and as an :class:`ExceptionGroup` on asyncio, matching the existing trio behaviour. (`#160 <https://github.com/python-astrodynamics/spacetrack/issues/160>`_)
+- When the Space-Track session expires (after two hours without requests), the client now logs in again and retries the request transparently instead of failing every subsequent request. (`#164 <https://github.com/python-astrodynamics/spacetrack/issues/164>`_)
+- Sets and frozensets are now accepted as predicate values and joined with commas like sequences.
+  Bytes-like values now raise :class:`TypeError` instead of being sent as comma-separated integers. (`#169 <https://github.com/python-astrodynamics/spacetrack/issues/169>`_)
+
+
+Fixed
+~~~~~
+
+- :class:`~spacetrack.aio.AsyncSpaceTrackClient` now accepts a plain function as the rate limit ``callback``, as shown in the documentation, in addition to a coroutine function. (`#160 <https://github.com/python-astrodynamics/spacetrack/issues/160>`_)
+- Concurrent first requests on a fresh client now share a single login request instead of each sending their own. (`#161 <https://github.com/python-astrodynamics/spacetrack/issues/161>`_)
+- Model definition requests are now rate limited like all other requests. (`#163 <https://github.com/python-astrodynamics/spacetrack/issues/163>`_)
+- Requests sent after a rate limit wait are now counted against the rate limit.
+  Previously they were not, so sustained use could exceed Space-Track's limits and trigger server-side rate limit errors. (`#163 <https://github.com/python-astrodynamics/spacetrack/issues/163>`_)
+- :meth:`SpaceTrackClient.close() <spacetrack.base.SpaceTrackClient.close>` and :meth:`AsyncSpaceTrackClient.close() <spacetrack.aio.AsyncSpaceTrackClient.close>` now close the underlying HTTPX client even if logging out fails. (`#166 <https://github.com/python-astrodynamics/spacetrack/issues/166>`_)
+- Setting ``base_url`` now resets the authentication state and the cached predicates, which are specific to the previous host. (`#166 <https://github.com/python-astrodynamics/spacetrack/issues/166>`_)
+- Fixed a :class:`ReferenceError` when chaining a request off a temporary client, e.g. ``SpaceTrackClient(...).basicspacedata.gp(...)``. (`#167 <https://github.com/python-astrodynamics/spacetrack/issues/167>`_)
+- :meth:`~spacetrack.base.SpaceTrackClient.get_predicates` now returns the known predicates for request classes without a model definition on Space-Track (such as ``fileshare/download`` and ``publicfiles/dirs``) instead of failing.
+  The returned :class:`~spacetrack.base.Predicate` objects have a ``type_`` of ``None``, since no model definition exists to provide it. (`#168 <https://github.com/python-astrodynamics/spacetrack/issues/168>`_)
+- ``parse_types=True`` now works together with ``metadata=True`` in :meth:`~spacetrack.base.SpaceTrackClient.generic_request` and the request class methods; previously the metadata-wrapped response made it fail after the request had succeeded. (`#170 <https://github.com/python-astrodynamics/spacetrack/issues/170>`_)
+- Fixed a :class:`TypeError` when passing positional arguments to request class methods such as ``client.gp_history(...)``.
+  The request class was bound as a keyword argument internally, so any positional argument clashed with it. (`#171 <https://github.com/python-astrodynamics/spacetrack/issues/171>`_)
+- Error responses whose JSON ``error`` value is not a string no longer raise :class:`TypeError` instead of ``httpx2.HTTPStatusError``. (`#172 <https://github.com/python-astrodynamics/spacetrack/issues/172>`_)
+
+
 `2.0.0 <https://github.com/python-astrodynamics/spacetrack/releases/tag/2.0.0>`_ - 2026-08-10
 ---------------------------------------------------------------------------------------------
 

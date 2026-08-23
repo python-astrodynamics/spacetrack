@@ -1,1 +1,0 @@
-Fixed a :class:`ReferenceError` when chaining a request off a temporary client, e.g. ``SpaceTrackClient(...).basicspacedata.gp(...)``.

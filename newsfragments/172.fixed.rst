@@ -1,1 +1,0 @@
-Error responses whose JSON ``error`` value is not a string no longer raise :class:`TypeError` instead of ``httpx2.HTTPStatusError``.

@@ -1,1 +1,0 @@
-:class:`~spacetrack.aio.AsyncSpaceTrackClient` now accepts a plain function as the rate limit ``callback``, as shown in the documentation, in addition to a coroutine function.

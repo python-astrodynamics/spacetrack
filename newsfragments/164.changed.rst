@@ -1,1 +1,0 @@
-When the Space-Track session expires (after two hours without requests), the client now logs in again and retries the request transparently instead of failing every subsequent request.
