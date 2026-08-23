@@ -724,6 +724,21 @@ def test_raise_for_status(httpx2_mock):
     assert "Space-Track" not in str(exc.value)
 
 
+def test_raise_for_status_non_string_error(httpx2_mock):
+    httpx2_mock.add_response(
+        method="GET",
+        url="http://example.com/1",
+        status_code=400,
+        json={"error": 12345},
+    )
+
+    response = httpx2.get("http://example.com/1")
+
+    with pytest.raises(httpx2.HTTPStatusError) as exc:
+        _raise_for_status(response)
+    assert '{"error":12345}' in str(exc.value)
+
+
 def test_repr(httpx2_mock):
     with SpaceTrackClient("hello@example.com", "mypassword") as client:
         assert repr(client) == "SpaceTrackClient<identity='hello@example.com'>"
