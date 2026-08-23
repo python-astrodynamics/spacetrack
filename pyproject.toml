@@ -58,6 +58,7 @@ docs = [
     "furo>=2024.8.6",
     "parver>=0.5",
     "sphinx>=7.4.7",
+    "sphinxcontrib-towncrier>=0.5.0a0",
 ]
 docstest = [
     { include-group = "docs" },
@@ -116,8 +117,9 @@ ignore = ["D001"]
 [tool.towncrier]
 directory = "newsfragments"
 filename = "docs/changelog.rst"
+template = "newsfragments/template.rst.jinja"
 issue_format = "`#{issue} <https://github.com/python-astrodynamics/spacetrack/issues/{issue}>`_"
-title_format = "`{version} <https://github.com/python-astrodynamics/spacetrack/releases/tag/{version}>`_ - {project_date}"
+title_format = ""
 underlines = ["-", "~"]
 
 [[tool.towncrier.type]]
