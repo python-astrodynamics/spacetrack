@@ -857,6 +857,21 @@ def test_parse_types(client, httpx2_mock, mock_auth):
     assert "parse_types" in exc_info.value.args[0]
 
 
+def test_parse_types_metadata(client, httpx2_mock, mock_auth, mock_gp_predicates):
+    httpx2_mock.add_response(
+        method="GET",
+        url=api_url("basicspacedata/query/class/gp/metadata/true"),
+        json={
+            "request_metadata": {"DataSize": "1"},
+            "data": [{"LAUNCH_DATE": "2017-01-01"}],
+        },
+    )
+
+    result = client.gp(parse_types=True, metadata=True)
+
+    assert result["data"][0]["LAUNCH_DATE"] == dt.date(2017, 1, 1)
+
+
 def test_params(httpx2_mock, mock_auth):
     data = b"hello\n"
     httpx2_mock.add_response(
