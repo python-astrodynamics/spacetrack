@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+.. towncrier-draft-entries::
+
+   Unreleased
+
 .. towncrier release notes start
 
 `2.0.0 <https://github.com/python-astrodynamics/spacetrack/releases/tag/2.0.0>`_ - 2026-08-10

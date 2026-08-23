@@ -7,6 +7,7 @@ https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import re
 from importlib.metadata import distribution
+from pathlib import Path
 
 from parver import Version
 
@@ -44,7 +45,13 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinxcontrib.towncrier.ext",
 ]
+
+# Render pending newsfragments at the top of the changelog, so that previews
+# built from pull requests show their entries.
+towncrier_draft_include_empty = False
+towncrier_draft_working_directory = str(Path(__file__).resolve().parent.parent)
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
