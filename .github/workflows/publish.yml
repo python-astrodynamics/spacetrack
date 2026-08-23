@@ -40,25 +40,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Extract release notes
-        run: |
-          awk -v version="$GITHUB_REF_NAME" '
-            index($0, "/releases/tag/" version ">`_ - ") { found = 1; skip_underline = 1; next }
-            found && skip_underline { skip_underline = 0; next }
-            found && /^[0-9][^ ]*_ - [0-9]{4}-[0-9]{2}-[0-9]{2}$/ { exit }
-            found && /\/releases\/tag\/[^>]+>`_ - [0-9]{4}-[0-9]{2}-[0-9]{2}$/ { exit }
-            found { print }
-            END { if (!found) exit 1 }
-          ' docs/changelog.rst > release-notes.rst
-          grep -q '[^[:space:]]' release-notes.rst
       - name: Create GitHub Release
         run: |
           gh release create "$GITHUB_REF_NAME" \
             --verify-tag \
             --title "$GITHUB_REF_NAME" \
-            --notes-file release-notes.rst
+            --notes "See the [change log](https://spacetrack.readthedocs.io/en/$GITHUB_REF_NAME/changelog.html) for the changes in this release."
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
