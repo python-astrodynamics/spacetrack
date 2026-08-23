@@ -119,6 +119,16 @@ class ReleaseFileLock(Event):
 
 
 @define
+class AcquireAuthLock(Event):
+    pass
+
+
+@define
+class ReleaseAuthLock(Event):
+    pass
+
+
+@define
 class RunBlocking(Event):
     func: Callable[[], Any]
 
@@ -329,6 +339,7 @@ class SpaceTrackClient:
         self.callback = None
 
         self._authenticated = False
+        self._auth_lock = self._create_auth_lock()
         self._predicates = dict()
         self._controller_proxies = dict()
 
@@ -379,6 +390,9 @@ class SpaceTrackClient:
             ),
         )
 
+    def _create_auth_lock(self):
+        return threading.Lock()
+
     @property
     def base_url(self):
         return str(self.client.base_url)
@@ -406,6 +420,10 @@ class SpaceTrackClient:
             event.lock.acquire()
         elif isinstance(event, ReleaseFileLock):
             event.lock.release()
+        elif isinstance(event, AcquireAuthLock):
+            self._auth_lock.acquire()
+        elif isinstance(event, ReleaseAuthLock):
+            self._auth_lock.release()
         elif isinstance(event, RunBlocking):
             return event.func()
         else:
@@ -433,19 +451,28 @@ class SpaceTrackClient:
         if self._authenticated:
             return
 
-        data = {"identity": self.identity, "password": self.password}
-        resp = yield NormalRequest(
-            self.client.build_request("POST", "ajaxauth/login", data=data)
-        )
-        _raise_for_status(resp)
+        yield AcquireAuthLock()
+        try:
+            # Another thread or task may have authenticated while we were
+            # waiting for the lock.
+            if self._authenticated:
+                return
 
-        # If login failed, we get a JSON response with {'Login': 'Failed'}
-        resp_data = resp.json()
-        if isinstance(resp_data, Mapping):
-            if resp_data.get("Login", None) == "Failed":
-                raise AuthenticationError()
+            data = {"identity": self.identity, "password": self.password}
+            resp = yield NormalRequest(
+                self.client.build_request("POST", "ajaxauth/login", data=data)
+            )
+            _raise_for_status(resp)
 
-        self._authenticated = True
+            # If login failed, we get a JSON response with {'Login': 'Failed'}
+            resp_data = resp.json()
+            if isinstance(resp_data, Mapping):
+                if resp_data.get("Login", None) == "Failed":
+                    raise AuthenticationError()
+
+            self._authenticated = True
+        finally:
+            yield ReleaseAuthLock()
 
     def _logout_generator(self):
         if not self._authenticated:
